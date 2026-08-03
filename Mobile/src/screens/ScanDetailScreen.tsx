@@ -3,6 +3,7 @@ import {
   ActivityIndicator,
   FlatList,
   Image,
+  KeyboardAvoidingView,
   Platform,
   Pressable,
   StyleSheet,
@@ -21,14 +22,19 @@ import { AiCaptionCard } from '../components/scan/AiCaptionCard';
 import { ChatBubble } from '../components/scan/ChatBubble';
 import { MaterialIcon } from '../components/profile/MaterialIcon';
 import { LoadingOverlay } from '../components/ui/LoadingOverlay';
-import { useKeyboardInset } from '../hooks/useKeyboardInset';
 import { useMessages, useScan, useSendMessage } from '../hooks/useScans';
+import { useKeyboardHeight } from '../hooks/useKeyboardHeight';
 import type { RootStackParamList } from '../navigation/types';
 import type { Message } from '../types/api';
 import { getApiErrorMessage } from '../services/api/client';
 import { colors, glass, radius, spacing, typography } from '../theme/tokens';
 
 const COMPOSER_FALLBACK_HEIGHT = 88;
+
+const KEYBOARD_SCROLL_DELAY_MS = Platform.OS === 'android' ? 300 : 150;
+
+/** Samsung One UI toolbar above keys — tune 36–52 if input overlaps or gaps. */
+const ANDROID_KEYBOARD_EXTRA = 55;
 
 type ScanScreenProps =
   | NativeStackScreenProps<RootStackParamList, 'ScanResult'>
@@ -43,8 +49,8 @@ export function ScanDetailScreen({ route, navigation }: ScanScreenProps) {
   const { height: windowHeight } = useWindowDimensions();
   const heroHeight = Math.round(windowHeight * 0.36);
   const insets = useSafeAreaInsets();
-  const keyboardInset = useKeyboardInset();
-  const keyboardOpen = keyboardInset > 0;
+  const keyboardHeight = useKeyboardHeight();
+  const keyboardOpen = keyboardHeight > 0;
 
   const { data: scan, isLoading, isError } = useScan(scanId);
   const { data: messages = [] } = useMessages(scanId);
@@ -65,9 +71,12 @@ export function ScanDetailScreen({ route, navigation }: ScanScreenProps) {
   }, []);
 
   const handleInputFocus = useCallback(() => {
-    scrollToEnd();
-    setTimeout(() => scrollToEnd(), Platform.OS === 'android' ? 280 : 120);
-  }, [scrollToEnd]);
+    if (messages.length === 0) {
+      return;
+    }
+
+    setTimeout(() => scrollToEnd(), KEYBOARD_SCROLL_DELAY_MS);
+  }, [messages.length, scrollToEnd]);
 
   useEffect(() => {
     if (messages.length === 0) {
@@ -78,13 +87,13 @@ export function ScanDetailScreen({ route, navigation }: ScanScreenProps) {
   }, [messages.length, scrollToEnd]);
 
   useEffect(() => {
-    if (!keyboardOpen) {
+    if (!keyboardOpen || messages.length === 0) {
       return;
     }
 
-    const timer = setTimeout(() => scrollToEnd(), Platform.OS === 'ios' ? 50 : 120);
+    const timer = setTimeout(() => scrollToEnd(), KEYBOARD_SCROLL_DELAY_MS);
     return () => clearTimeout(timer);
-  }, [keyboardOpen, keyboardInset, scrollToEnd]);
+  }, [keyboardOpen, keyboardHeight, messages.length, scrollToEnd]);
 
   const handleSend = async () => {
     const content = input.trim();
@@ -150,10 +159,16 @@ export function ScanDetailScreen({ route, navigation }: ScanScreenProps) {
   );
 
   const composerBottomInset = keyboardOpen ? spacing.sm : Math.max(insets.bottom, spacing.md);
-  const listBottomPadding = composerHeight + spacing.xl;
+  const androidKeyboardExtra =
+    Platform.OS === 'android' && keyboardOpen ? ANDROID_KEYBOARD_EXTRA : 0;
+  const listBottomPadding = composerHeight + spacing.xl + androidKeyboardExtra;
 
   return (
-    <View style={[styles.root, keyboardOpen && { paddingBottom: keyboardInset }]}>
+    <KeyboardAvoidingView
+      style={styles.root}
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      enabled={Platform.OS === 'ios'}
+      keyboardVerticalOffset={insets.top}>
       <FlatList
         ref={listRef}
         data={messages}
@@ -180,7 +195,13 @@ export function ScanDetailScreen({ route, navigation }: ScanScreenProps) {
         onLayout={(event) => {
           setComposerHeight(event.nativeEvent.layout.height);
         }}
-        style={[styles.composerDock, { paddingBottom: composerBottomInset }]}>
+        style={[
+          styles.composerDock,
+          {
+            paddingBottom: composerBottomInset,
+            marginBottom: androidKeyboardExtra,
+          },
+        ]}>
         <View style={styles.composer}>
           <TextInput
             ref={inputRef}
@@ -217,7 +238,7 @@ export function ScanDetailScreen({ route, navigation }: ScanScreenProps) {
           </Pressable>
         </View>
       </View>
-    </View>
+    </KeyboardAvoidingView>
   );
 }
 
