@@ -7,9 +7,8 @@ React Native app for AI-powered image scanning and captions. Connects to the [Ba
 - **React Native** 0.86 + TypeScript
 - **React Navigation** — auth + main tabs
 - **TanStack Query** + **Zustand** — server state + local favorites
-- **react-native-vision-camera** — live camera preview & capture
+- **react-native-image-picker** — system camera capture & gallery pick
 - **AsyncStorage** — offline scan history cache
-- **NativeWind** — Tailwind-style styling
 
 ## Prerequisites
 
@@ -23,8 +22,6 @@ cd Mobile
 npm install
 ```
 
-Copy env template if you add one later; API URL is configured in app config.
-
 ### Android (physical device)
 
 Forward the backend port so the device can reach your machine:
@@ -32,18 +29,6 @@ Forward the backend port so the device can reach your machine:
 ```bash
 adb reverse tcp:3001 tcp:3001
 ```
-
-### Native rebuild (required after installing vision-camera)
-
-Vision Camera includes native code. After `npm install`, rebuild the app:
-
-```bash
-npm run android
-# or
-npm run ios
-```
-
-Do **not** rely on Metro reload alone for native module changes.
 
 ## Run
 
@@ -57,11 +42,14 @@ npm run android
 npm run ios
 ```
 
-If Metro fails to resolve vision-camera modules, clear cache:
+## Scan flow
 
-```bash
-npx react-native start --reset-cache
-```
+The scan screen shows a static viewfinder UI. Users pick an image via:
+
+- **Capture photo** — opens the device system camera
+- **Choose from gallery** — opens the photo library
+
+There is no in-app live camera preview.
 
 ## Project structure
 
@@ -70,13 +58,13 @@ Mobile/
 ├── src/
 │   ├── screens/          # Camera, History, Profile, Auth
 │   ├── components/       # UI, scan, profile
-│   ├── hooks/            # useScanCamera, useScans
+│   ├── viewmodels/       # useCameraViewModel, useAnalyzingViewModel
+│   ├── hooks/            # useScans
 │   ├── stores/           # Zustand (auth, favorites)
 │   ├── lib/storage/      # AsyncStorage scan cache
 │   └── navigation/
 ├── android/
-├── ios/
-└── metro.config.js       # Resolves vision-camera compiled lib/
+└── ios/
 ```
 
 ## What not to commit
@@ -94,7 +82,6 @@ Only commit `.env.example` templates, never real `.env` files.
 
 | Issue | Fix |
 |-------|-----|
-| Metro can't resolve `VisionCamera` | Run `npm start -- --reset-cache`; ensure `metro.config.js` is present |
-| Live camera preview is black | Grant camera permission; full native rebuild (`npm run android`) |
+| Camera won't open | Grant camera permission in device Settings |
+| Gallery picker fails | Grant photos/media permission in device Settings |
 | API requests fail on device | Run `adb reverse tcp:3001 tcp:3001` and start Backend |
-| Gradle stuck on vision-camera CMake | Normal on first build; wait for completion |

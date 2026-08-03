@@ -18,7 +18,6 @@
     "react-native-svg": "^15.15.5",
     "react-native-toast-message": "^2.4.0",
     "react-native-vector-icons": "^10.3.0",
-    "react-native-vision-camera": "^5.2.1",
     "zod": "^4.4.3",
     "zustand": "^5.0.14"
   },

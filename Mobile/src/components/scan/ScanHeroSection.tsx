@@ -6,7 +6,7 @@ export function ScanHeroSection() {
     <View style={styles.hero}>
       <Text style={styles.title}>What do you see?</Text>
       <Text style={styles.subtitle}>
-        Point your camera and Captiq will describe it with AI
+        Snap anything. Captiq describes it instantly with AI.
       </Text>
     </View>
   );

@@ -11,14 +11,12 @@ import type { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
 import type { CompositeNavigationProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { CameraPreview } from '../components/scan/CameraPreview';
-import { CameraViewfinder } from '../components/scan/CameraViewfinder';
+import { ScanViewfinderWidget } from '../components/scan/ScanViewfinderWidget';
 import { ScanHeroSection } from '../components/scan/ScanHeroSection';
 import { MaterialIcon } from '../components/profile/MaterialIcon';
-import { StatusChip } from '../components/ui/StatusChip';
 import { AppTopBar } from '../components/ui/AppTopBar';
 import { TAB_BAR_BOTTOM_PADDING } from '../components/ui/GlassBottomNav';
-import { useScanCamera } from '../hooks/useScanCamera';
+import { useCameraViewModel } from '../viewmodels/useCameraViewModel';
 import type { MainTabParamList, RootStackParamList } from '../navigation/types';
 import { colors, glass, radius, spacing, typography } from '../theme/tokens';
 
@@ -29,16 +27,7 @@ type Nav = CompositeNavigationProp<
 
 export function CameraScreen() {
   const navigation = useNavigation<Nav>();
-  const {
-    cameraRef,
-    isFocused,
-    isBusy,
-    hasPermission,
-    cameraReady,
-    handlePreviewStarted,
-    capturePhoto,
-    pickFromGallery,
-  } = useScanCamera();
+  const { isBusy, capturePhoto, pickFromGallery } = useCameraViewModel();
 
   return (
     <View style={styles.root}>
@@ -62,12 +51,7 @@ export function CameraScreen() {
           <View style={styles.viewfinderSlot}>
             <View style={styles.viewfinderOuter}>
               <View style={styles.viewfinderFrame}>
-                <CameraPreview
-                  ref={cameraRef}
-                  isActive={isFocused && !isBusy}
-                  onPreviewStarted={handlePreviewStarted}
-                />
-                <CameraViewfinder />
+                <ScanViewfinderWidget />
               </View>
             </View>
           </View>
@@ -76,12 +60,12 @@ export function CameraScreen() {
             <View style={styles.actions}>
               <Pressable
                 accessibilityRole="button"
-                disabled={isBusy || !hasPermission}
+                disabled={isBusy}
                 onPress={capturePhoto}
                 style={({ pressed }) => [
                   styles.primaryButtonWrap,
                   pressed && styles.pressed,
-                  (isBusy || !hasPermission) && styles.disabled,
+                  isBusy && styles.disabled,
                 ]}>
                 <LinearGradient
                   colors={[colors.primary, colors.primaryContainer]}
@@ -111,19 +95,6 @@ export function CameraScreen() {
                 <MaterialIcon name="image" size={22} color={colors.secondary} />
                 <Text style={styles.secondaryLabel}>Choose from gallery</Text>
               </Pressable>
-            </View>
-
-            <View style={styles.chips}>
-              <StatusChip
-                icon={hasPermission ? 'check_circle' : 'info'}
-                label={hasPermission ? 'Live preview active' : 'Camera permission needed'}
-                variant={hasPermission ? 'success' : 'secondary'}
-              />
-              <StatusChip
-                icon="wb_sunny"
-                label={cameraReady ? 'Auto-exposure on' : 'Initializing camera…'}
-                variant="secondary"
-              />
             </View>
           </View>
         </View>
@@ -169,7 +140,7 @@ const styles = StyleSheet.create({
     flex: 1,
     borderRadius: 40,
     overflow: 'hidden',
-    backgroundColor: '#141824',
+    backgroundColor: '#0D1117',
   },
   bottomBlock: {
     gap: spacing.lg,
@@ -222,12 +193,6 @@ const styles = StyleSheet.create({
   secondaryLabel: {
     ...typography.labelLg,
     color: colors.secondary,
-  },
-  chips: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'center',
-    gap: spacing.sm,
   },
   pressed: {
     opacity: 0.92,
