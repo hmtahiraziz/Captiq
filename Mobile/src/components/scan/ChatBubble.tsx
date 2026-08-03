@@ -1,6 +1,6 @@
 import { StyleSheet, Text, View } from 'react-native';
 import { formatAiText } from '../../lib/format/aiText';
-import { colors, glass, radius, spacing, typography } from '../../theme/tokens';
+import { colors, radius, spacing, typography } from '../../theme/tokens';
 
 interface ChatBubbleProps {
   role: 'user' | 'assistant';
@@ -47,11 +47,11 @@ const styles = StyleSheet.create({
     borderTopRightRadius: 0,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 6,
-    elevation: 2,
+    shadowColor: colors.primary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 3,
   },
   userText: {
     ...typography.bodyMd,
@@ -84,9 +84,9 @@ const styles = StyleSheet.create({
     color: colors.onSurfaceVariant,
   },
   assistantBubble: {
-    backgroundColor: glass.cardBackground,
+    backgroundColor: '#FFFFFF',
     borderWidth: 1,
-    borderColor: glass.cardBorder,
+    borderColor: 'rgba(200, 196, 216, 0.45)',
     borderRadius: radius.lg,
     borderTopLeftRadius: 0,
     padding: spacing.md,
@@ -98,7 +98,7 @@ const styles = StyleSheet.create({
   },
   assistantText: {
     ...typography.bodyMd,
-    color: colors.onSurfaceVariant,
+    color: colors.onSurface,
     lineHeight: 24,
   },
 });

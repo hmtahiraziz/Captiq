@@ -3,8 +3,6 @@ import {
   ActivityIndicator,
   FlatList,
   Image,
-  Keyboard,
-  KeyboardAvoidingView,
   Platform,
   Pressable,
   StyleSheet,
@@ -23,13 +21,14 @@ import { AiCaptionCard } from '../components/scan/AiCaptionCard';
 import { ChatBubble } from '../components/scan/ChatBubble';
 import { MaterialIcon } from '../components/profile/MaterialIcon';
 import { LoadingOverlay } from '../components/ui/LoadingOverlay';
+import { useKeyboardInset } from '../hooks/useKeyboardInset';
 import { useMessages, useScan, useSendMessage } from '../hooks/useScans';
 import type { RootStackParamList } from '../navigation/types';
 import type { Message } from '../types/api';
 import { getApiErrorMessage } from '../services/api/client';
 import { colors, glass, radius, spacing, typography } from '../theme/tokens';
 
-const COMPOSER_FALLBACK_HEIGHT = 120;
+const COMPOSER_FALLBACK_HEIGHT = 88;
 
 type ScanScreenProps =
   | NativeStackScreenProps<RootStackParamList, 'ScanResult'>
@@ -44,43 +43,48 @@ export function ScanDetailScreen({ route, navigation }: ScanScreenProps) {
   const { height: windowHeight } = useWindowDimensions();
   const heroHeight = Math.round(windowHeight * 0.36);
   const insets = useSafeAreaInsets();
+  const keyboardInset = useKeyboardInset();
+  const keyboardOpen = keyboardInset > 0;
+
   const { data: scan, isLoading, isError } = useScan(scanId);
   const { data: messages = [] } = useMessages(scanId);
   const sendMessage = useSendMessage(scanId);
   const [input, setInput] = useState('');
-  const [keyboardVisible, setKeyboardVisible] = useState(false);
   const [composerHeight, setComposerHeight] = useState(COMPOSER_FALLBACK_HEIGHT);
   const listRef = useRef<FlatList<Message>>(null);
+  const inputRef = useRef<TextInput>(null);
 
   const displayImage = imageUri ?? scan?.imageUrl;
   const caption = scan?.caption ?? captionParam ?? '';
   const canSend = input.trim().length > 0 && !sendMessage.isPending;
+
+  const scrollToEnd = useCallback((animated = true) => {
+    requestAnimationFrame(() => {
+      listRef.current?.scrollToEnd({ animated });
+    });
+  }, []);
+
+  const handleInputFocus = useCallback(() => {
+    scrollToEnd();
+    setTimeout(() => scrollToEnd(), Platform.OS === 'android' ? 280 : 120);
+  }, [scrollToEnd]);
 
   useEffect(() => {
     if (messages.length === 0) {
       return;
     }
 
-    listRef.current?.scrollToEnd({ animated: true });
-  }, [messages.length]);
+    scrollToEnd();
+  }, [messages.length, scrollToEnd]);
 
   useEffect(() => {
-    const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
-    const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
+    if (!keyboardOpen) {
+      return;
+    }
 
-    const showSub = Keyboard.addListener(showEvent, () => {
-      setKeyboardVisible(true);
-      setTimeout(() => listRef.current?.scrollToEnd({ animated: true }), 100);
-    });
-    const hideSub = Keyboard.addListener(hideEvent, () => {
-      setKeyboardVisible(false);
-    });
-
-    return () => {
-      showSub.remove();
-      hideSub.remove();
-    };
-  }, []);
+    const timer = setTimeout(() => scrollToEnd(), Platform.OS === 'ios' ? 50 : 120);
+    return () => clearTimeout(timer);
+  }, [keyboardOpen, keyboardInset, scrollToEnd]);
 
   const handleSend = async () => {
     const content = input.trim();
@@ -96,10 +100,6 @@ export function ScanDetailScreen({ route, navigation }: ScanScreenProps) {
       setInput(content);
       Toast.show({ type: 'error', text1: getApiErrorMessage(error) });
     }
-  };
-
-  const scrollToComposer = () => {
-    setTimeout(() => listRef.current?.scrollToEnd({ animated: true }), 100);
   };
 
   const renderMessage = useCallback(
@@ -149,80 +149,74 @@ export function ScanDetailScreen({ route, navigation }: ScanScreenProps) {
     </View>
   );
 
-  const listBottomPadding = composerHeight + spacing.lg;
+  const composerBottomInset = keyboardOpen ? spacing.sm : Math.max(insets.bottom, spacing.md);
+  const listBottomPadding = composerHeight + spacing.xl;
 
   return (
-    <View style={styles.root}>
-      <KeyboardAvoidingView
-        style={styles.flex}
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}>
-        <FlatList
-          ref={listRef}
-          data={messages}
-          keyExtractor={(item) => item.id}
-          renderItem={renderMessage}
-          ListHeaderComponent={listHeader}
-          style={styles.list}
-          contentContainerStyle={[styles.listContent, { paddingBottom: listBottomPadding }]}
-          keyboardShouldPersistTaps="handled"
-          keyboardDismissMode="on-drag"
-          showsVerticalScrollIndicator={false}
-          ItemSeparatorComponent={() => <View style={styles.messageGap} />}
-          ListEmptyComponent={
-            <Text style={styles.emptyChat}>
-              Ask a follow-up question about this image
-            </Text>
-          }
-        />
+    <View style={[styles.root, keyboardOpen && { paddingBottom: keyboardInset }]}>
+      <FlatList
+        ref={listRef}
+        data={messages}
+        keyExtractor={(item) => item.id}
+        renderItem={renderMessage}
+        ListHeaderComponent={listHeader}
+        style={styles.list}
+        contentContainerStyle={[
+          styles.listContent,
+          { paddingBottom: listBottomPadding },
+        ]}
+        keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="on-drag"
+        showsVerticalScrollIndicator={false}
+        ItemSeparatorComponent={() => <View style={styles.messageGap} />}
+        ListEmptyComponent={
+          <Text style={styles.emptyChat}>
+            Ask a follow-up question about this image
+          </Text>
+        }
+      />
 
-        <View
-          onLayout={(event) => {
-            setComposerHeight(event.nativeEvent.layout.height);
-          }}
-          style={[
-            styles.composerWrap,
-            {
-              paddingBottom: keyboardVisible
-                ? spacing.sm
-                : Math.max(insets.bottom, 24),
-            },
-          ]}>
-          <View style={styles.composer}>
-            <TextInput
-              style={styles.input}
-              placeholder="Ask about this image..."
-              placeholderTextColor="rgba(71, 69, 85, 0.6)"
-              value={input}
-              onChangeText={setInput}
-              onFocus={scrollToComposer}
-              multiline
-              maxLength={1000}
-              editable={!sendMessage.isPending}
-              returnKeyType="send"
-              blurOnSubmit={false}
-              onSubmitEditing={handleSend}
-            />
-            <Pressable
-              accessibilityRole="button"
-              disabled={!canSend}
-              onPress={handleSend}
-              style={({ pressed }) => [
-                styles.sendPressable,
-                !canSend && styles.sendDisabled,
-                pressed && canSend && styles.pressed,
-              ]}>
-              <View style={styles.sendButton}>
-                {sendMessage.isPending ? (
-                  <ActivityIndicator color={colors.onPrimary} size="small" />
-                ) : (
-                  <MaterialIcon name="send" size={20} color={colors.onPrimary} filled />
-                )}
-              </View>
-            </Pressable>
-          </View>
+      <View
+        onLayout={(event) => {
+          setComposerHeight(event.nativeEvent.layout.height);
+        }}
+        style={[styles.composerDock, { paddingBottom: composerBottomInset }]}>
+        <View style={styles.composer}>
+          <TextInput
+            ref={inputRef}
+            style={styles.input}
+            placeholder="Ask about this image..."
+            placeholderTextColor="rgba(71, 69, 85, 0.55)"
+            value={input}
+            onChangeText={setInput}
+            onFocus={handleInputFocus}
+            multiline
+            maxLength={1000}
+            editable={!sendMessage.isPending}
+            returnKeyType="send"
+            blurOnSubmit={false}
+            onSubmitEditing={handleSend}
+            textAlignVertical="top"
+          />
+          <Pressable
+            accessibilityRole="button"
+            disabled={!canSend}
+            onPress={handleSend}
+            style={({ pressed }) => [
+              styles.sendPressable,
+              !canSend && styles.sendDisabled,
+              pressed && canSend && styles.pressed,
+            ]}>
+            <View style={styles.sendButton}>
+              {sendMessage.isPending ? (
+                <ActivityIndicator color={colors.onPrimary} size="small" />
+              ) : (
+                <MaterialIcon name="send" size={20} color={colors.onPrimary} filled />
+              )}
+            </View>
+          </Pressable>
         </View>
-      </KeyboardAvoidingView>
+      </View>
     </View>
   );
 }
@@ -231,9 +225,6 @@ const styles = StyleSheet.create({
   root: {
     flex: 1,
     backgroundColor: colors.background,
-  },
-  flex: {
-    flex: 1,
   },
   list: {
     flex: 1,
@@ -305,20 +296,25 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.xl,
     paddingHorizontal: spacing.marginMobile,
   },
-  composerWrap: {
-    backgroundColor: colors.surfaceContainerLowest,
+  composerDock: {
+    backgroundColor: '#FFFFFF',
     borderTopWidth: 1,
     borderTopColor: colors.outlineVariant,
     paddingHorizontal: spacing.marginMobile,
     paddingTop: spacing.md,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -4 },
+    shadowOpacity: 0.06,
+    shadowRadius: 12,
+    elevation: 8,
   },
   composer: {
     flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: colors.surfaceContainer,
+    alignItems: 'flex-end',
+    backgroundColor: '#FFFFFF',
     borderRadius: radius.pill,
     borderWidth: 1,
-    borderColor: 'rgba(200, 196, 216, 0.5)',
+    borderColor: 'rgba(200, 196, 216, 0.6)',
     paddingLeft: spacing.md,
     paddingRight: 6,
     paddingVertical: 6,
@@ -326,7 +322,6 @@ const styles = StyleSheet.create({
     maxWidth: 672,
     alignSelf: 'center',
     width: '100%',
-    overflow: 'hidden',
   },
   input: {
     flex: 1,
@@ -334,7 +329,7 @@ const styles = StyleSheet.create({
     minWidth: 0,
     ...typography.bodyMd,
     color: colors.onSurface,
-    maxHeight: 96,
+    maxHeight: 120,
     minHeight: 44,
     paddingVertical: spacing.sm,
     paddingRight: spacing.sm,
@@ -342,6 +337,7 @@ const styles = StyleSheet.create({
   sendPressable: {
     flexShrink: 0,
     marginLeft: spacing.xs,
+    marginBottom: 2,
   },
   sendButton: {
     width: 44,

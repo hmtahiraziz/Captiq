@@ -48,15 +48,17 @@ export function AiCaptionCard({ caption, model }: AiCaptionCardProps) {
 const styles = StyleSheet.create({
   card: {
     borderRadius: 32,
-    backgroundColor: colors.surfaceContainerLowest,
+    backgroundColor: '#FFFFFF',
     borderWidth: 1,
     borderColor: 'rgba(200, 196, 216, 0.35)',
     padding: spacing.lg,
     marginBottom: spacing.sm,
+    overflow: 'hidden',
   },
   headerBlock: {
     gap: spacing.sm,
     marginBottom: spacing.md,
+    backgroundColor: '#FFFFFF',
   },
   titleRow: {
     flexDirection: 'row',
@@ -88,10 +90,11 @@ const styles = StyleSheet.create({
   body: {
     gap: spacing.md,
     marginBottom: spacing.xs,
+    backgroundColor: '#FFFFFF',
   },
   paragraph: {
     ...typography.bodyMd,
-    color: colors.onSurfaceVariant,
+    color: colors.onSurface,
     lineHeight: 24,
   },
   paragraphSpacing: {
