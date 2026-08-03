@@ -1,0 +1,29 @@
+<svg width="1024" height="1024" viewBox="0 0 1024 1024" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="icon_grad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#5B4CF0" />
+      <stop offset="100%" stop-color="#47A5FF" />
+    </linearGradient>
+  </defs>
+  <rect width="1024" height="1024" rx="220" fill="url(#icon_grad)" />
+  <path
+    d="M512 300C395.4 300 300 395.4 300 512C300 628.6 395.4 724 512 724C628.6 724 724 628.6 724 512"
+    stroke="white"
+    stroke-width="80"
+    stroke-linecap="round"
+    fill="none"
+    opacity="0.9"
+  />
+  <circle cx="512" cy="512" r="70" fill="white" opacity="0.95" />
+  <circle cx="512" cy="512" r="90" fill="white" opacity="0.15" />
+  <circle
+    cx="512"
+    cy="512"
+    r="120"
+    stroke="white"
+    stroke-width="12"
+    stroke-dasharray="10 40"
+    fill="none"
+    opacity="0.4"
+  />
+</svg>
