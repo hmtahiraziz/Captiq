@@ -49,8 +49,6 @@ const styles = StyleSheet.create({
     height: 224,
     borderRadius: 32,
     backgroundColor: colors.surfaceContainerLowest,
-    borderWidth: 1,
-    borderColor: 'rgba(200, 196, 216, 0.35)',
     padding: spacing.md,
     overflow: 'hidden',
   },
@@ -79,8 +77,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.sm,
     paddingVertical: 4,
     borderRadius: radius.pill,
-    borderWidth: 1,
-    borderColor: 'rgba(200, 196, 216, 0.4)',
     zIndex: 1,
   },
   percentText: {

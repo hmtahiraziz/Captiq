@@ -10,8 +10,8 @@ export class AppError extends Error {
 }
 
 export class UnauthorizedError extends AppError {
-  constructor(message = 'Unauthorized') {
-    super(401, message, 'UNAUTHORIZED');
+  constructor(message = 'Unauthorized', code = 'UNAUTHORIZED') {
+    super(401, message, code);
   }
 }
 
@@ -36,5 +36,11 @@ export class ConflictError extends AppError {
 export class ValidationError extends AppError {
   constructor(message = 'Validation failed') {
     super(400, message, 'VALIDATION_ERROR');
+  }
+}
+
+export class TooManyRequestsError extends AppError {
+  constructor(message = 'Too many requests', code = 'RATE_LIMITED') {
+    super(429, message, code);
   }
 }

@@ -17,6 +17,24 @@ export function formatAiText(text: string): string {
     .trim();
 }
 
+/** Short title from the first sentence / line of a caption. */
+export function captionTitle(text: string, maxLength = 52): string {
+  const formatted = formatAiText(text);
+
+  if (!formatted) {
+    return 'Untitled scan';
+  }
+
+  const first =
+    formatted.split(/[.!?\n]/).map((part) => part.trim()).find(Boolean) ?? formatted;
+
+  if (first.length <= maxLength) {
+    return first;
+  }
+
+  return `${first.slice(0, maxLength - 1).trimEnd()}…`;
+}
+
 export function splitAiParagraphs(text: string): string[] {
   const formatted = formatAiText(text);
 
