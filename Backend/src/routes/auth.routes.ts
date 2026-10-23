@@ -1,23 +1,31 @@
 import { Router } from 'express';
-import rateLimit from 'express-rate-limit';
+import rateLimit, { ipKeyGenerator } from 'express-rate-limit';
 import {
+  changePassword,
+  deleteUserAccount,
   getUserById,
   loginUser,
   logoutUser,
+  recordUserConsent,
   refreshUserToken,
   registerUser,
   requestPasswordReset,
   resetPassword,
 } from '../services/auth.service.js';
+import { getQuotaUsage } from '../services/quota.service.js';
 import { validateBody } from '../middleware/validate.middleware.js';
 import {
+  changePasswordSchema,
   forgotPasswordSchema,
   loginSchema,
+  recordConsentSchema,
   refreshTokenSchema,
   registerSchema,
   resetPasswordSchema,
+  type ChangePasswordInput,
   type ForgotPasswordInput,
   type LoginInput,
+  type RecordConsentInput,
   type RefreshTokenInput,
   type RegisterInput,
   type ResetPasswordInput,
@@ -26,6 +34,52 @@ import { authenticate, type AuthenticatedRequest } from '../middleware/auth.midd
 import { asyncHandler } from '../utils/async-handler.js';
 
 const router = Router();
+
+const authLimiterMessage = {
+  success: false,
+  error: { message: 'Too many attempts. Please try again later.' },
+};
+
+const loginIpLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 30,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: authLimiterMessage,
+});
+
+const loginAccountLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: authLimiterMessage,
+  keyGenerator: (req) => {
+    const email =
+      typeof req.body?.email === 'string' ? req.body.email.toLowerCase().trim() : '';
+    if (email) {
+      return `login-account:${email}`;
+    }
+    // IPv6-safe fallback when body email is missing
+    return `login-account:ip:${ipKeyGenerator(req.ip ?? 'unknown')}`;
+  },
+});
+
+const registerIpLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  max: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: authLimiterMessage,
+});
+
+const refreshIpLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 60,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: authLimiterMessage,
+});
 
 const passwordResetLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
@@ -40,6 +94,7 @@ const passwordResetLimiter = rateLimit({
 
 router.post(
   '/register',
+  registerIpLimiter,
   validateBody(registerSchema),
   asyncHandler(async (req, res) => {
     const body = res.locals.validatedBody as RegisterInput;
@@ -50,7 +105,9 @@ router.post(
 
 router.post(
   '/login',
+  loginIpLimiter,
   validateBody(loginSchema),
+  loginAccountLimiter,
   asyncHandler(async (req, res) => {
     const body = res.locals.validatedBody as LoginInput;
     const tokens = await loginUser(body);
@@ -82,6 +139,7 @@ router.post(
 
 router.post(
   '/refresh',
+  refreshIpLimiter,
   validateBody(refreshTokenSchema),
   asyncHandler(async (req, res) => {
     const body = res.locals.validatedBody as RefreshTokenInput;
@@ -100,6 +158,18 @@ router.post(
   }),
 );
 
+router.post(
+  '/change-password',
+  authenticate,
+  validateBody(changePasswordSchema),
+  asyncHandler(async (req, res) => {
+    const { user } = req as AuthenticatedRequest;
+    const body = res.locals.validatedBody as ChangePasswordInput;
+    const result = await changePassword(user.id, body);
+    res.json({ success: true, data: result });
+  }),
+);
+
 router.get(
   '/me',
   authenticate,
@@ -107,6 +177,38 @@ router.get(
     const { user } = req as AuthenticatedRequest;
     const profile = await getUserById(user.id);
     res.json({ success: true, data: profile });
+  }),
+);
+
+router.get(
+  '/quota',
+  authenticate,
+  asyncHandler(async (req, res) => {
+    const { user } = req as AuthenticatedRequest;
+    const quota = await getQuotaUsage(user.id);
+    res.json({ success: true, data: quota });
+  }),
+);
+
+router.post(
+  '/consent',
+  authenticate,
+  validateBody(recordConsentSchema),
+  asyncHandler(async (req, res) => {
+    const { user } = req as AuthenticatedRequest;
+    const body = res.locals.validatedBody as RecordConsentInput;
+    const result = await recordUserConsent(user.id, body);
+    res.json({ success: true, data: result });
+  }),
+);
+
+router.delete(
+  '/account',
+  authenticate,
+  asyncHandler(async (req, res) => {
+    const { user } = req as AuthenticatedRequest;
+    const result = await deleteUserAccount(user.id);
+    res.json({ success: true, data: result });
   }),
 );
 

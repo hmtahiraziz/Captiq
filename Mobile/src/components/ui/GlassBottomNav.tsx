@@ -1,84 +1,155 @@
-import { Pressable, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
+import { useEffect } from 'react';
+import {
+  Platform,
+  Pressable,
+  StyleSheet,
+  View,
+  useWindowDimensions,
+} from 'react-native';
 import type { BottomTabBarProps } from '@react-navigation/bottom-tabs';
-import LinearGradient from 'react-native-linear-gradient';
+import Animated, {
+  Extrapolation,
+  interpolate,
+  interpolateColor,
+  useAnimatedStyle,
+  useSharedValue,
+  withSpring,
+} from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { MaterialIcon, type MaterialIconName } from '../profile/MaterialIcon';
 import type { MainTabParamList } from '../../navigation/types';
-import { colors, glass, radius, spacing, typography } from '../../theme/tokens';
+import { colors, radius, spacing, typography } from '../../theme/tokens';
 
 const TAB_META: Record<
   keyof MainTabParamList,
   { icon: MaterialIconName; label: string }
 > = {
-  Camera: { icon: 'camera_outdoor', label: 'Scan' },
+  Home: { icon: 'home', label: 'Home' },
   History: { icon: 'history', label: 'History' },
   Profile: { icon: 'person', label: 'Profile' },
 };
 
-/** Space reserved above the floating tab bar (nav height + bottom inset + margin). */
-export const TAB_BAR_BOTTOM_PADDING = 132;
+const BAR_PADDING_H = 6;
+const PILL_SPRING = { damping: 18, stiffness: 220, mass: 0.75 };
+
+/** Space reserved above the floating tab bar (bar + gap + system nav). */
+export const TAB_BAR_BOTTOM_PADDING = 128;
 
 export function GlassBottomNav({ state, descriptors, navigation }: BottomTabBarProps) {
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
-  const barWidth = Math.min(width * 0.9, 448);
-  const bottomInset = Math.max(insets.bottom, 16);
+  const barWidth = Math.min(width - 40, 380);
+  const bottomInset = Math.max(insets.bottom, 10) + 12;
+  const tabCount = Math.max(state.routes.length, 1);
+  const innerWidth = barWidth - BAR_PADDING_H * 2;
+  const tabWidth = innerWidth / tabCount;
+
+  const activeIndex = useSharedValue(state.index);
+
+  useEffect(() => {
+    activeIndex.value = withSpring(state.index, PILL_SPRING);
+  }, [activeIndex, state.index]);
+
+  const pillStyle = useAnimatedStyle(() => ({
+    width: tabWidth,
+    transform: [{ translateX: activeIndex.value * tabWidth }],
+  }));
 
   return (
-    <View pointerEvents="box-none" style={[styles.wrapper, { paddingBottom: bottomInset + 8 }]}>
-      <View style={[styles.bar, { width: barWidth }]}>
-        {state.routes.map((route, index) => {
-          const isFocused = state.index === index;
-          const meta = TAB_META[route.name as keyof MainTabParamList];
-          const label = descriptors[route.key].options.title ?? meta.label;
+    <View pointerEvents="box-none" style={[styles.wrapper, { paddingBottom: bottomInset }]}>
+      <View style={[styles.barShadow, { width: barWidth }]}>
+        <View style={[styles.bar, { width: barWidth }]}>
+          <Animated.View style={[styles.pillTrack, pillStyle]}>
+            <View style={styles.pill} />
+          </Animated.View>
 
-          const onPress = () => {
-            const event = navigation.emit({
-              type: 'tabPress',
-              target: route.key,
-              canPreventDefault: true,
-            });
+          {state.routes.map((route, index) => {
+            const isFocused = state.index === index;
+            const meta = TAB_META[route.name as keyof MainTabParamList];
+            const label = descriptors[route.key].options.title ?? meta.label;
 
-            if (!isFocused && !event.defaultPrevented) {
-              navigation.navigate(route.name, route.params);
-            }
-          };
+            const onPress = () => {
+              const event = navigation.emit({
+                type: 'tabPress',
+                target: route.key,
+                canPreventDefault: true,
+              });
 
-          if (isFocused) {
+              if (!isFocused && !event.defaultPrevented) {
+                navigation.navigate(route.name, route.params);
+              }
+            };
+
             return (
-              <Pressable
+              <TabItem
                 key={route.key}
-                accessibilityRole="button"
-                accessibilityState={{ selected: true }}
-                accessibilityLabel={label}
+                label={label}
+                icon={meta.icon}
+                isFocused={isFocused}
                 onPress={onPress}
-                style={({ pressed }) => [styles.activeTab, pressed && styles.pressed]}>
-                <LinearGradient
-                  colors={[colors.secondaryContainer, colors.primary]}
-                  start={{ x: 0, y: 0.5 }}
-                  end={{ x: 1, y: 0.5 }}
-                  style={styles.activeGradient}>
-                  <MaterialIcon name={meta.icon} size={22} color={colors.onPrimary} filled />
-                  <Text style={styles.activeLabel}>{label}</Text>
-                </LinearGradient>
-              </Pressable>
+              />
             );
-          }
-
-          return (
-            <Pressable
-              key={route.key}
-              accessibilityRole="button"
-              accessibilityState={{ selected: false }}
-              accessibilityLabel={label}
-              onPress={onPress}
-              style={({ pressed }) => [styles.inactiveTab, pressed && styles.inactivePressed]}>
-              <MaterialIcon name={meta.icon} size={24} color={colors.onSurfaceVariant} />
-            </Pressable>
-          );
-        })}
+          })}
+        </View>
       </View>
     </View>
+  );
+}
+
+function TabItem({
+  label,
+  icon,
+  isFocused,
+  onPress,
+}: {
+  label: string;
+  icon: MaterialIconName;
+  isFocused: boolean;
+  onPress: () => void;
+}) {
+  const progress = useSharedValue(isFocused ? 1 : 0);
+
+  useEffect(() => {
+    progress.value = withSpring(isFocused ? 1 : 0, PILL_SPRING);
+  }, [isFocused, progress]);
+
+  const contentStyle = useAnimatedStyle(() => ({
+    transform: [
+      {
+        scale: interpolate(progress.value, [0, 1], [1, 1.04], Extrapolation.CLAMP),
+      },
+    ],
+  }));
+
+  const labelStyle = useAnimatedStyle(() => ({
+    color: interpolateColor(
+      progress.value,
+      [0, 1],
+      [colors.outline, colors.primary],
+    ),
+    opacity: interpolate(progress.value, [0, 1], [0.75, 1], Extrapolation.CLAMP),
+  }));
+
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityState={{ selected: isFocused }}
+      accessibilityLabel={label}
+      onPress={onPress}
+      hitSlop={4}
+      style={({ pressed }) => [styles.tab, pressed && styles.tabPressed]}>
+      <Animated.View style={[styles.tabInner, contentStyle]}>
+        <MaterialIcon
+          name={icon}
+          size={22}
+          color={isFocused ? colors.primary : colors.outline}
+          filled={isFocused}
+        />
+        <Animated.Text style={[styles.tabLabel, labelStyle]} numberOfLines={1}>
+          {label}
+        </Animated.Text>
+      </Animated.View>
+    </Pressable>
   );
 }
 
@@ -90,52 +161,64 @@ const styles = StyleSheet.create({
     bottom: 0,
     alignItems: 'center',
   },
+  barShadow: {
+    borderRadius: 28,
+    ...Platform.select({
+      ios: {
+        shadowColor: colors.primary,
+        shadowOffset: { width: 0, height: 14 },
+        shadowOpacity: 0.12,
+        shadowRadius: 20,
+      },
+      android: {
+        elevation: 10,
+      },
+      default: {},
+    }),
+  },
   bar: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: glass.cardBackground,
-    borderRadius: radius.pill,
-    borderWidth: 1,
-    borderColor: glass.cardBorder,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.sm,
-    shadowColor: colors.surfaceTint,
-    shadowOffset: { width: 0, height: 20 },
-    shadowOpacity: 0.1,
-    shadowRadius: 40,
-    elevation: 8,
-  },
-  activeTab: {
-    borderRadius: radius.pill,
+    backgroundColor: 'rgba(255,255,255,0.96)',
+    borderRadius: 28,
+    paddingHorizontal: BAR_PADDING_H,
+    paddingVertical: 6,
+    minHeight: 64,
     overflow: 'hidden',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(200, 196, 216, 0.85)',
   },
-  activeGradient: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-    paddingHorizontal: spacing.lg,
-    paddingVertical: 12,
+  pillTrack: {
+    position: 'absolute',
+    left: BAR_PADDING_H,
+    top: 6,
+    bottom: 6,
+    paddingHorizontal: 2,
+  },
+  pill: {
+    flex: 1,
     borderRadius: radius.pill,
+    backgroundColor: colors.primaryFixed,
   },
-  activeLabel: {
-    ...typography.labelMd,
-    color: colors.onPrimary,
-    fontWeight: '600',
-  },
-  inactiveTab: {
-    width: 48,
-    height: 48,
+  tab: {
+    flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: radius.pill,
+    zIndex: 1,
+    paddingVertical: 6,
   },
-  inactivePressed: {
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-    transform: [{ scale: 0.96 }],
+  tabInner: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 2,
   },
-  pressed: {
-    opacity: 0.92,
-    transform: [{ scale: 0.96 }],
+  tabPressed: {
+    opacity: 0.88,
+  },
+  tabLabel: {
+    ...typography.labelMd,
+    fontSize: 10,
+    fontWeight: '700',
+    marginTop: 1,
   },
 });

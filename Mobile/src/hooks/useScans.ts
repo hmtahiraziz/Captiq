@@ -3,6 +3,7 @@ import type { Message, ScanListResponse } from '../types/api';
 import { loadScanCache, saveScanCache } from '../lib/storage/scanCache';
 import * as scansService from '../services/scans.service';
 import { useScanListMeta } from '../stores/useScanListMeta';
+import { quotaKeys } from './useQuota';
 
 export const scanKeys = {
   all: ['scans'] as const,
@@ -68,6 +69,7 @@ export function useCreateScan() {
     }) => scansService.createScan(imageUri, onProgress),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: scanKeys.list() });
+      queryClient.invalidateQueries({ queryKey: quotaKeys.all });
     },
   });
 }
@@ -112,6 +114,7 @@ export function useSendMessage(scanId: string) {
           data.assistantMessage,
         ];
       });
+      queryClient.invalidateQueries({ queryKey: quotaKeys.all });
     },
   });
 }

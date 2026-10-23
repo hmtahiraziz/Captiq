@@ -1,115 +1,110 @@
-import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useCallback } from 'react';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
-import { useNavigation } from '@react-navigation/native';
+import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialIcon } from '../components/profile/MaterialIcon';
 import { ProfileAvatar } from '../components/profile/ProfileAvatar';
+import { QuotaMeter } from '../components/profile/QuotaMeter';
 import { SettingsRow } from '../components/profile/SettingsRow';
-import { UtilizationPill } from '../components/profile/UtilizationPill';
-import { AppTopBar } from '../components/ui/AppTopBar';
+import { APP_HEADER_VERSION, AppTopBar } from '../components/ui/AppTopBar';
 import { TAB_BAR_BOTTOM_PADDING } from '../components/ui/GlassBottomNav';
+import { useQuota } from '../hooks/useQuota';
 import { useScans } from '../hooks/useScans';
 import type { RootStackParamList } from '../navigation/types';
+import { useConfirmDialog } from '../providers/ConfirmDialogProvider';
 import { useAuthStore } from '../stores/useAuthStore';
-import { colors, radius, spacing, typography } from '../theme/tokens';
-
-const APP_VERSION = '0.0.1';
+import { colors, spacing, typography } from '../theme/tokens';
 
 export function ProfileScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const user = useAuthStore((s) => s.user);
   const logout = useAuthStore((s) => s.logout);
-  const { data } = useScans();
+  const { confirm } = useConfirmDialog();
+  const { data, refetch: refetchScans } = useScans();
+  const { data: quota, refetch: refetchQuota, isFetching: quotaFetching } = useQuota();
 
   const scanCount = data?.items.length ?? 0;
-  const storagePercent = Math.min(95, Math.max(10, Math.round((scanCount / 20) * 100) || 65));
-  const apiPercent = Math.min(
-    90,
-    Math.max(8, scanCount === 0 ? 40 : scanCount * 8 + 12),
+  const isVerified = Boolean(user?.consentedAt || user?.consentVersion);
+
+  useFocusEffect(
+    useCallback(() => {
+      void refetchQuota();
+      void refetchScans();
+    }, [refetchQuota, refetchScans]),
   );
 
-  const confirmLogout = () => {
-    Alert.alert('Log out', 'Are you sure you want to log out?', [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Log out',
-        style: 'destructive',
-        onPress: () => {
-          logout().catch(() => undefined);
-        },
-      },
-    ]);
+  const confirmLogout = async () => {
+    const confirmed = await confirm({
+      title: 'Log out',
+      message: 'Are you sure you want to log out?',
+      confirmLabel: 'Log out',
+      cancelLabel: 'Cancel',
+      destructive: true,
+    });
+
+    if (confirmed) {
+      logout().catch(() => undefined);
+    }
   };
 
   return (
     <View style={styles.root}>
       <LinearGradient
-        colors={['#F5F2FF', '#E3DFFF', colors.background]}
-        locations={[0, 0.3, 1]}
+        colors={['#EEF2FF', colors.surfaceContainerLow, '#E8F0FE']}
+        locations={[0, 0.45, 1]}
         style={StyleSheet.absoluteFill}
       />
-      <View style={styles.ambientTop} />
-      <View style={styles.ambientBottom} />
 
       <SafeAreaView style={styles.safe} edges={['top']}>
-        <AppTopBar
-          title="Profile"
-          trailingIcon="notifications"
-          trailingAccessibilityLabel="Notifications"
-        />
+        <AppTopBar showTrailing={false} />
 
         <ScrollView
+          style={styles.scroll}
           contentContainerStyle={styles.content}
           showsVerticalScrollIndicator={false}>
-          <View style={styles.section}>
-            <View style={styles.accountCard}>
-              <View style={styles.accountRow}>
-                <View style={styles.avatarSlot}>
-                  <ProfileAvatar email={user?.email} />
-                </View>
-                <View style={styles.accountCopy}>
-                  <Text style={styles.signedInLabel}>Signed in as</Text>
-                  <Text style={styles.email} numberOfLines={1}>
-                    {user?.email ?? '—'}
-                  </Text>
-                  <View style={styles.badge}>
-                    <Text style={styles.badgeText}>Premium Member</Text>
-                  </View>
-                </View>
+          <View style={styles.card}>
+            <ProfileAvatar email={user?.email} size={64} verified={isVerified} />
+            <View style={styles.accountCopy}>
+              <Text style={styles.signedInLabel}>Signed in as</Text>
+              <Text style={styles.email} numberOfLines={1}>
+                {user?.email ?? '—'}
+              </Text>
+              <View style={styles.scanMetaRow}>
+                <MaterialIcon name="history" size={14} color={colors.primary} />
+                <Text style={styles.scanMeta}>
+                  {scanCount} scan{scanCount === 1 ? '' : 's'} in history
+                </Text>
               </View>
             </View>
           </View>
 
-          <View style={styles.section}>
-            <View style={styles.utilSection}>
-              <Text style={styles.sectionTitle}>App Utilization</Text>
-              <View style={styles.utilRow}>
-                <UtilizationPill label="Storage" percent={storagePercent} variant="primary" />
-                <UtilizationPill label="API Usage" percent={apiPercent} variant="tertiary" />
-              </View>
-            </View>
-          </View>
+          <QuotaMeter quota={quota} refreshing={quotaFetching} />
 
-          <View style={styles.section}>
-            <View style={styles.menuCard}>
-              <SettingsRow
-                icon="manage_accounts"
-                label="Account"
-                onPress={() => navigation.navigate('AccountSettings')}
-              />
-              <SettingsRow
-                icon="shield"
-                label="Privacy"
-                onPress={() => navigation.navigate('PrivacySettings')}
-              />
-              <SettingsRow
-                icon="info"
-                label="About Captiq"
-                onPress={() => navigation.navigate('AboutCaptiq')}
-                showDivider={false}
-              />
-            </View>
+          <View style={styles.menuCard}>
+            <SettingsRow
+              icon="manage_accounts"
+              iconTone="primary"
+              label="Account"
+              description="Email and account deletion"
+              onPress={() => navigation.navigate('AccountSettings')}
+            />
+            <SettingsRow
+              icon="shield"
+              iconTone="violet"
+              label="Privacy"
+              description="History, permissions, and legal"
+              onPress={() => navigation.navigate('PrivacySettings')}
+            />
+            <SettingsRow
+              icon="info"
+              iconTone="blue"
+              label="About Captiq"
+              description="App info and support"
+              onPress={() => navigation.navigate('AboutCaptiq')}
+              showDivider={false}
+            />
           </View>
 
           <View style={styles.footer}>
@@ -117,10 +112,10 @@ export function ProfileScreen() {
               accessibilityRole="button"
               onPress={confirmLogout}
               style={({ pressed }) => [styles.logoutButton, pressed && styles.logoutPressed]}>
-              <MaterialIcon name="logout" size={20} color={colors.error} />
-              <Text style={styles.logoutLabel}>Logout</Text>
+              <MaterialIcon name="logout" size={18} color={colors.error} />
+              <Text style={styles.logoutLabel}>Log out</Text>
             </Pressable>
-            <Text style={styles.version}>Version {APP_VERSION}</Text>
+            <Text style={styles.version}>Version {APP_HEADER_VERSION}</Text>
           </View>
         </ScrollView>
       </SafeAreaView>
@@ -128,129 +123,93 @@ export function ProfileScreen() {
   );
 }
 
-const cardBase = {
-  borderRadius: 32,
-  backgroundColor: colors.surfaceContainerLowest,
-  borderWidth: 1,
-  borderColor: 'rgba(200, 196, 216, 0.35)',
-} as const;
-
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: colors.background,
-  },
-  ambientTop: {
-    position: 'absolute',
-    top: -120,
-    right: -120,
-    width: 384,
-    height: 384,
-    borderRadius: 192,
-    backgroundColor: 'rgba(66, 44, 216, 0.08)',
-  },
-  ambientBottom: {
-    position: 'absolute',
-    bottom: 80,
-    left: -120,
-    width: 384,
-    height: 384,
-    borderRadius: 192,
-    backgroundColor: 'rgba(71, 165, 255, 0.08)',
+    backgroundColor: colors.surfaceContainerLow,
   },
   safe: {
     flex: 1,
   },
+  scroll: {
+    flex: 1,
+  },
   content: {
     paddingHorizontal: spacing.marginMobile,
-    paddingTop: spacing.lg,
+    paddingTop: spacing.sm,
     paddingBottom: TAB_BAR_BOTTOM_PADDING,
     maxWidth: 512,
     alignSelf: 'center',
     width: '100%',
+    gap: 14,
   },
-  section: {
-    marginBottom: spacing.xxl,
-  },
-  accountCard: {
-    ...cardBase,
-    padding: spacing.xl,
-  },
-  accountRow: {
+  card: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.md,
-  },
-  avatarSlot: {
-    paddingRight: spacing.xs,
-    paddingBottom: spacing.xs,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    padding: spacing.lg,
   },
   accountCopy: {
     flex: 1,
-    gap: spacing.xs,
+    gap: 4,
     minWidth: 0,
   },
   signedInLabel: {
     ...typography.labelMd,
-    color: colors.onSurfaceVariant,
+    color: colors.outline,
+    textTransform: 'uppercase',
+    letterSpacing: 0.6,
+    fontWeight: '700',
+    fontSize: 11,
   },
   email: {
-    ...typography.headlineSm,
-    color: colors.onSurface,
-  },
-  badge: {
-    alignSelf: 'flex-start',
-    marginTop: spacing.sm,
-    backgroundColor: 'rgba(31, 174, 122, 0.1)',
-    paddingHorizontal: 12,
-    paddingVertical: 4,
-    borderRadius: radius.pill,
-  },
-  badgeText: {
-    ...typography.labelMd,
-    color: colors.success,
-    fontWeight: '600',
-  },
-  utilSection: {
-    gap: spacing.lg,
-  },
-  sectionTitle: {
     ...typography.labelLg,
-    color: colors.onSurfaceVariant,
-    marginLeft: spacing.sm,
+    color: colors.onSurface,
+    fontWeight: '700',
+    fontSize: 15,
   },
-  utilRow: {
+  scanMetaRow: {
     flexDirection: 'row',
-    gap: spacing.md,
-    alignItems: 'flex-start',
+    alignItems: 'center',
+    gap: 6,
+    marginTop: 2,
+  },
+  scanMeta: {
+    ...typography.labelMd,
+    color: colors.onSurfaceVariant,
+    fontSize: 12,
   },
   menuCard: {
-    ...cardBase,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
     overflow: 'hidden',
+    paddingVertical: 4,
   },
   footer: {
     alignItems: 'center',
-    gap: spacing.lg,
+    gap: spacing.md,
     paddingTop: spacing.sm,
   },
   logoutButton: {
-    width: '100%',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: spacing.sm,
-    paddingVertical: spacing.md,
-    borderRadius: radius.pill,
-    borderWidth: 2,
-    borderColor: 'rgba(186, 26, 26, 0.2)',
+    paddingVertical: 12,
+    paddingHorizontal: 22,
+    borderRadius: 999,
+    backgroundColor: '#FFFFFF',
   },
   logoutPressed: {
-    backgroundColor: 'rgba(186, 26, 26, 0.05)',
-    transform: [{ scale: 0.98 }],
+    backgroundColor: 'rgba(186, 26, 26, 0.08)',
   },
   logoutLabel: {
     ...typography.labelLg,
     color: colors.error,
+    fontWeight: '700',
+    fontSize: 14,
   },
   version: {
     ...typography.labelMd,

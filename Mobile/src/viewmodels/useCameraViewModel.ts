@@ -6,9 +6,11 @@ import {
   type CameraOptions,
   type ImageLibraryOptions,
 } from 'react-native-image-picker';
-import { Alert, Platform } from 'react-native';
+import { Platform } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { ensureAiConsent } from '../lib/consent/ensureAiConsent';
+import { appAlert } from '../lib/dialog/appDialog';
 import { waitForUiReady } from '../lib/permissions/waitForUiReady';
 import {
   ensureCameraPermission,
@@ -42,14 +44,17 @@ function getPickerErrorMessage(errorCode?: string, errorMessage?: string): strin
   }
 }
 
-function navigateWithAsset(
+async function navigateWithAsset(
   asset: Asset | undefined,
   navigation: NativeStackNavigationProp<RootStackParamList>,
 ) {
   const uri = asset?.uri;
 
   if (!uri) {
-    Alert.alert('No image selected', 'Please choose a photo and try again.');
+    await appAlert({
+      title: 'No image selected',
+      message: 'Please choose a photo and try again.',
+    });
     return;
   }
 
@@ -73,10 +78,15 @@ export function useCameraViewModel() {
     setIsCapturing(true);
 
     try {
+      const consented = await ensureAiConsent();
+      if (!consented) {
+        return;
+      }
+
       const hasPermission = await ensureCameraPermission();
 
       if (!hasPermission) {
-        showCameraPermissionDeniedAlert();
+        await showCameraPermissionDeniedAlert();
         return;
       }
 
@@ -87,15 +97,18 @@ export function useCameraViewModel() {
       }
 
       if (result.errorCode) {
-        Alert.alert('Camera error', getPickerErrorMessage(result.errorCode, result.errorMessage));
+        await appAlert({
+          title: 'Camera error',
+          message: getPickerErrorMessage(result.errorCode, result.errorMessage),
+        });
         return;
       }
 
-      navigateWithAsset(result.assets?.[0], navigation);
+      await navigateWithAsset(result.assets?.[0], navigation);
     } catch (error) {
       const message =
         error instanceof Error ? error.message : 'Unable to open the camera. Please try again.';
-      Alert.alert('Camera error', message);
+      await appAlert({ title: 'Camera error', message });
     } finally {
       setIsCapturing(false);
     }
@@ -109,6 +122,11 @@ export function useCameraViewModel() {
     setIsPicking(true);
 
     try {
+      const consented = await ensureAiConsent();
+      if (!consented) {
+        return;
+      }
+
       await waitForUiReady();
 
       const result = await launchImageLibrary(GALLERY_OPTIONS);
@@ -118,15 +136,18 @@ export function useCameraViewModel() {
       }
 
       if (result.errorCode) {
-        Alert.alert('Gallery error', getPickerErrorMessage(result.errorCode, result.errorMessage));
+        await appAlert({
+          title: 'Gallery error',
+          message: getPickerErrorMessage(result.errorCode, result.errorMessage),
+        });
         return;
       }
 
-      navigateWithAsset(result.assets?.[0], navigation);
+      await navigateWithAsset(result.assets?.[0], navigation);
     } catch (error) {
       const message =
         error instanceof Error ? error.message : 'Unable to open the gallery. Please try again.';
-      Alert.alert('Gallery error', message);
+      await appAlert({ title: 'Gallery error', message });
     } finally {
       setIsPicking(false);
     }

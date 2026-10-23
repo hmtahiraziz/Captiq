@@ -3,10 +3,7 @@ import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import {
-  KeyboardAvoidingView,
-  Platform,
   Pressable,
-  ScrollView,
   StatusBar,
   StyleSheet,
   Text,
@@ -15,18 +12,19 @@ import {
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Toast from 'react-native-toast-message';
 import { AuthBackground } from '../components/auth/AuthBackground';
 import { AuthLogoHeader } from '../components/auth/AuthLogoHeader';
 import { AuthPrimaryButton } from '../components/auth/AuthPrimaryButton';
-import { AuthRoundedInput, MailLeadingIcon } from '../components/auth/AuthRoundedInput';
 import { GlassCard } from '../components/auth/GlassCard';
+import { GlassInput } from '../components/auth/GlassInput';
 import { MaterialIcon } from '../components/profile/MaterialIcon';
 import { getApiErrorMessage } from '../stores/useAuthStore';
 import type { RootStackParamList } from '../navigation/types';
 import * as authService from '../services/auth.service';
-import { colors, spacing, typography } from '../theme/tokens';
+import { colors, radius, spacing, typography } from '../theme/tokens';
 
 const schema = z.object({
   email: z.string().email('Enter a valid email'),
@@ -40,7 +38,6 @@ export function ForgotPasswordScreen() {
   const isCompact = height < 780 || width < 360;
   const [submitting, setSubmitting] = useState(false);
   const [sent, setSent] = useState(false);
-  const [emailFocused, setEmailFocused] = useState(false);
 
   const form = useForm<ForgotPasswordForm>({
     resolver: zodResolver(schema),
@@ -53,6 +50,7 @@ export function ForgotPasswordScreen() {
     try {
       await authService.forgotPassword(values.email);
       setSent(true);
+      navigation.navigate('ResetPassword', { email: values.email.trim().toLowerCase() });
     } catch (error) {
       Toast.show({ type: 'error', text1: getApiErrorMessage(error) });
     } finally {
@@ -66,87 +64,78 @@ export function ForgotPasswordScreen() {
       <AuthBackground />
 
       <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
-        <KeyboardAvoidingView
+        <KeyboardAwareScrollView
           style={styles.flex}
-          behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-          <ScrollView
-            contentContainerStyle={[
-              styles.container,
-              isCompact && styles.containerCompact,
-            ]}
-            keyboardShouldPersistTaps="handled"
-            showsVerticalScrollIndicator={false}>
-            <AuthLogoHeader compact={isCompact} />
+          contentContainerStyle={[
+            styles.container,
+            isCompact && styles.containerCompact,
+          ]}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+          bottomOffset={24}>
+          <AuthLogoHeader compact={isCompact} />
 
-            <GlassCard compact={isCompact} style={styles.card}>
-              <View style={[styles.cardHeader, isCompact && styles.cardHeaderCompact]}>
-                <Text style={styles.headline}>Forgot Password?</Text>
-                <Text style={styles.subtitle}>Enter your email to reset your password.</Text>
-              </View>
+          <View style={styles.stepRow}>
+            <View style={[styles.stepDot, styles.stepDotActive]} />
+            <View style={styles.stepLine} />
+            <View style={styles.stepDot} />
+          </View>
+          <Text style={styles.stepLabel}>Step 1 of 2 · Send code</Text>
 
-              <View style={[styles.form, isCompact && styles.formCompact]}>
-                <Controller
-                  control={form.control}
-                  name="email"
-                  render={({ field: { onChange, onBlur, value } }) => (
-                    <AuthRoundedInput
-                      label="Email address"
-                      placeholder="name@company.com"
-                      autoCapitalize="none"
-                      keyboardType="email-address"
-                      autoComplete="email"
-                      editable={!sent && !submitting}
-                      onBlur={() => {
-                        setEmailFocused(false);
-                        onBlur();
-                      }}
-                      onFocus={() => setEmailFocused(true)}
-                      onChangeText={onChange}
-                      value={value}
-                      error={form.formState.errors.email?.message}
-                      leadingIcon={<MailLeadingIcon focused={emailFocused} />}
-                    />
-                  )}
-                />
+          <GlassCard compact={isCompact}>
+            <View style={[styles.cardHeader, isCompact && styles.cardHeaderCompact]}>
+              <Text style={styles.headline}>Forgot password?</Text>
+              <Text style={styles.subtitle}>
+                Enter your email and we&apos;ll send a 6-digit reset code.
+              </Text>
+            </View>
 
-                {sent ? (
-                  <Text style={styles.successHint}>
-                    Check your inbox for a secure reset link. It expires in 1 hour.
-                  </Text>
-                ) : null}
+            <View style={[styles.form, isCompact && styles.formCompact]}>
+              <Controller
+                control={form.control}
+                name="email"
+                render={({ field: { onChange, onBlur, value } }) => (
+                  <GlassInput
+                    label="Email address"
+                    placeholder="name@example.com"
+                    autoCapitalize="none"
+                    keyboardType="email-address"
+                    autoComplete="email"
+                    editable={!sent && !submitting}
+                    onBlur={onBlur}
+                    onChangeText={onChange}
+                    value={value}
+                    error={form.formState.errors.email?.message}
+                  />
+                )}
+              />
 
-                <AuthPrimaryButton
-                  label="Send Link"
-                  loading={submitting}
-                  success={sent}
-                  successLabel="Link Sent!"
-                  showArrow={!sent}
-                  disabled={sent}
-                  onPress={onSubmit}
-                />
-              </View>
+              {sent ? (
+                <Text style={styles.successHint}>
+                  Check your inbox for a 6-digit code. It expires in 15 minutes.
+                </Text>
+              ) : null}
 
-              <View style={styles.footerDivider} />
+              <AuthPrimaryButton
+                label="Send code"
+                loading={submitting}
+                success={sent}
+                successLabel="Code sent"
+                showArrow={!sent}
+                disabled={sent}
+                onPress={onSubmit}
+              />
+            </View>
 
-              <Pressable
-                accessibilityRole="button"
-                onPress={() => navigation.navigate('Auth')}
-                style={({ pressed }) => [styles.backLink, pressed && styles.pressed]}>
-                <MaterialIcon name="arrow_back" size={18} color={colors.primary} />
-                <Text style={styles.backLabel}>Back to Login</Text>
-              </Pressable>
-            </GlassCard>
-
-            {!isCompact ? (
-              <View style={styles.progressRow}>
-                <View style={styles.progressTrack}>
-                  <View style={styles.progressFill} />
-                </View>
-                <Text style={styles.progressLabel}>Reset Security Protocol 1/3</Text>
-              </View>
-            ) : null}
-          </ScrollView>
-        </KeyboardAvoidingView>
+            <Pressable
+              accessibilityRole="button"
+              onPress={() => navigation.navigate('Auth')}
+              style={({ pressed }) => [styles.backLink, pressed && styles.pressed]}>
+              <MaterialIcon name="arrow_back" size={18} color={colors.primary} />
+              <Text style={styles.backLabel}>Back to sign in</Text>
+            </Pressable>
+          </GlassCard>
+        </KeyboardAwareScrollView>
       </SafeAreaView>
     </View>
   );
@@ -172,32 +161,57 @@ const styles = StyleSheet.create({
     maxWidth: 448,
     width: '100%',
     alignSelf: 'center',
+    gap: spacing.md,
   },
   containerCompact: {
     paddingVertical: spacing.md,
     justifyContent: 'flex-start',
   },
-  card: {
-    borderRadius: 32,
+  stepRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.sm,
+  },
+  stepDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: colors.surfaceContainerHighest,
+  },
+  stepDotActive: {
+    backgroundColor: colors.primary,
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+  },
+  stepLine: {
+    width: 40,
+    height: 3,
+    borderRadius: 2,
+    backgroundColor: colors.primaryFixed,
+  },
+  stepLabel: {
+    ...typography.labelMd,
+    color: colors.onSurfaceVariant,
+    textAlign: 'center',
+    marginBottom: spacing.sm,
   },
   cardHeader: {
     marginBottom: spacing.xl,
-    alignItems: 'center',
+    gap: spacing.xs,
   },
   cardHeaderCompact: {
     marginBottom: spacing.lg,
   },
   headline: {
-    ...typography.headlineLg,
+    ...typography.headlineSm,
     color: colors.primary,
-    textAlign: 'center',
-    marginBottom: spacing.md,
-    letterSpacing: -0.3,
+    fontWeight: '700',
   },
   subtitle: {
     ...typography.bodyMd,
     color: colors.onSurfaceVariant,
-    textAlign: 'center',
   },
   form: {
     gap: spacing.lg,
@@ -206,53 +220,21 @@ const styles = StyleSheet.create({
     gap: spacing.md,
   },
   successHint: {
-    ...typography.bodyMd,
-    color: colors.onSurfaceVariant,
+    ...typography.labelMd,
+    color: colors.tertiary,
     textAlign: 'center',
-    marginTop: -spacing.sm,
-  },
-  footerDivider: {
-    marginTop: spacing.lg,
-    marginBottom: spacing.md,
-    borderTopWidth: 1,
-    borderStyle: 'dashed',
-    borderColor: `${colors.outlineVariant}4D`,
   },
   backLink: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: spacing.xs,
-    minHeight: 44,
+    minHeight: 48,
+    marginTop: spacing.lg,
   },
   backLabel: {
     ...typography.labelLg,
     color: colors.primary,
-  },
-  progressRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: spacing.lg,
-    marginTop: spacing.xl,
-    opacity: 0.4,
-  },
-  progressTrack: {
-    width: 64,
-    height: 6,
-    borderRadius: 999,
-    backgroundColor: `${colors.outlineVariant}4D`,
-    overflow: 'hidden',
-  },
-  progressFill: {
-    width: '33%',
-    height: '100%',
-    backgroundColor: colors.primary,
-    borderRadius: 999,
-  },
-  progressLabel: {
-    ...typography.labelMd,
-    color: colors.outline,
   },
   pressed: {
     opacity: 0.88,

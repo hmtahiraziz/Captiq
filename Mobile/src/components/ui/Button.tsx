@@ -66,9 +66,7 @@ const variantStyles = StyleSheet.create({
   primary: { backgroundColor: colors.primaryContainer },
   secondary: { backgroundColor: colors.secondary },
   outline: {
-    backgroundColor: colors.surfaceContainerLowest,
-    borderWidth: 1,
-    borderColor: colors.outlineVariant,
+    backgroundColor: colors.surfaceContainerHigh,
   },
 });
 

@@ -3,10 +3,7 @@ import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import {
-  KeyboardAvoidingView,
-  Platform,
   Pressable,
-  ScrollView,
   StatusBar,
   StyleSheet,
   Text,
@@ -16,6 +13,7 @@ import {
 import { useNavigation, useRoute } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RouteProp } from '@react-navigation/native';
+import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Toast from 'react-native-toast-message';
 import { AuthBackground } from '../components/auth/AuthBackground';
@@ -34,6 +32,7 @@ import { colors, spacing, typography } from '../theme/tokens';
 
 const schema = z
   .object({
+    code: z.string().regex(/^\d{6}$/, 'Enter the 6-digit code from your email'),
     password: z.string().min(8, 'Password must be at least 8 characters'),
     confirmPassword: z.string().min(8, 'Confirm your password'),
   })
@@ -47,6 +46,7 @@ type ResetPasswordForm = z.infer<typeof schema>;
 export function ResetPasswordScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const route = useRoute<RouteProp<RootStackParamList, 'ResetPassword'>>();
+  const email = route.params.email.trim().toLowerCase();
   const { width, height } = useWindowDimensions();
   const isCompact = height < 780 || width < 360;
   const [submitting, setSubmitting] = useState(false);
@@ -56,17 +56,15 @@ export function ResetPasswordScreen() {
 
   const form = useForm<ResetPasswordForm>({
     resolver: zodResolver(schema),
-    defaultValues: { password: '', confirmPassword: '' },
+    defaultValues: { code: '', password: '', confirmPassword: '' },
   });
 
   const onSubmit = form.handleSubmit(async (values) => {
-    const token = route.params?.token?.trim();
-
-    if (!token) {
+    if (!email) {
       Toast.show({
         type: 'error',
-        text1: 'Invalid reset link',
-        text2: 'Request a new password reset email and try again.',
+        text1: 'Missing email',
+        text2: 'Go back and request a new reset code.',
       });
       return;
     }
@@ -74,8 +72,14 @@ export function ResetPasswordScreen() {
     setSubmitting(true);
 
     try {
-      await authService.resetPassword(token, values.password);
+      await authService.resetPassword(email, values.code, values.password);
       setCompleted(true);
+      Toast.show({
+        type: 'success',
+        text1: 'Password updated',
+        text2: 'Sign in with your new password.',
+      });
+      navigation.navigate('Auth');
     } catch (error) {
       Toast.show({ type: 'error', text1: getApiErrorMessage(error) });
     } finally {
@@ -89,110 +93,121 @@ export function ResetPasswordScreen() {
       <AuthBackground />
 
       <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
-        <KeyboardAvoidingView
+        <KeyboardAwareScrollView
           style={styles.flex}
-          behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-          <ScrollView
-            contentContainerStyle={[
-              styles.container,
-              isCompact && styles.containerCompact,
-            ]}
-            keyboardShouldPersistTaps="handled"
-            showsVerticalScrollIndicator={false}>
-            <AuthLogoHeader compact={isCompact} />
+          contentContainerStyle={[
+            styles.container,
+            isCompact && styles.containerCompact,
+          ]}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+          bottomOffset={24}>
+          <AuthLogoHeader compact={isCompact} />
 
-            <GlassCard compact={isCompact} style={styles.card}>
-              <View style={[styles.cardHeader, isCompact && styles.cardHeaderCompact]}>
-                <Text style={styles.headline}>Set new password</Text>
-                <Text style={styles.subtitle}>
-                  Choose a strong password for your Captiq AI account.
-                </Text>
-              </View>
+          <View style={styles.stepRow}>
+            <View style={[styles.stepDot, styles.stepDotDone]} />
+            <View style={[styles.stepLine, styles.stepLineActive]} />
+            <View style={[styles.stepDot, styles.stepDotActive]} />
+          </View>
+          <Text style={styles.stepLabel}>Step 2 of 2 · New password</Text>
 
-              <View style={[styles.form, isCompact && styles.formCompact]}>
-                <Controller
-                  control={form.control}
-                  name="password"
-                  render={({ field: { onChange, onBlur, value } }) => (
-                    <GlassInput
-                      label="New password"
-                      placeholder="••••••••"
-                      secureTextEntry={!passwordVisible}
-                      autoComplete="new-password"
-                      editable={!completed && !submitting}
-                      onBlur={onBlur}
-                      onChangeText={onChange}
-                      value={value}
-                      error={form.formState.errors.password?.message}
-                      trailing={
-                        <PasswordVisibilityToggle
-                          visible={passwordVisible}
-                          onToggle={() => setPasswordVisible((v) => !v)}
-                        />
-                      }
-                    />
-                  )}
-                />
+          <GlassCard compact={isCompact}>
+            <View style={[styles.cardHeader, isCompact && styles.cardHeaderCompact]}>
+              <Text style={styles.headline}>Enter reset code</Text>
+              <Text style={styles.subtitle}>
+                We sent a 6-digit code to {email}. It expires in 15 minutes.
+              </Text>
+            </View>
 
-                <Controller
-                  control={form.control}
-                  name="confirmPassword"
-                  render={({ field: { onChange, onBlur, value } }) => (
-                    <GlassInput
-                      label="Confirm password"
-                      placeholder="••••••••"
-                      secureTextEntry={!confirmVisible}
-                      autoComplete="new-password"
-                      editable={!completed && !submitting}
-                      onBlur={onBlur}
-                      onChangeText={onChange}
-                      value={value}
-                      error={form.formState.errors.confirmPassword?.message}
-                      trailing={
-                        <PasswordVisibilityToggle
-                          visible={confirmVisible}
-                          onToggle={() => setConfirmVisible((v) => !v)}
-                        />
-                      }
-                    />
-                  )}
-                />
+            <View style={[styles.form, isCompact && styles.formCompact]}>
+              <Controller
+                control={form.control}
+                name="code"
+                render={({ field: { onChange, onBlur, value } }) => (
+                  <GlassInput
+                    label="Reset code"
+                    placeholder="000000"
+                    keyboardType="number-pad"
+                    autoComplete="one-time-code"
+                    textContentType="oneTimeCode"
+                    maxLength={6}
+                    editable={!completed && !submitting}
+                    onBlur={onBlur}
+                    onChangeText={(text) => onChange(text.replace(/\D/g, '').slice(0, 6))}
+                    value={value}
+                    error={form.formState.errors.code?.message}
+                  />
+                )}
+              />
 
-                <AuthPrimaryButton
-                  label="Update password"
-                  loading={submitting}
-                  success={completed}
-                  successLabel="Password updated"
-                  disabled={completed}
-                  onPress={
-                    completed
-                      ? () => navigation.navigate('Auth')
-                      : onSubmit
-                  }
-                />
-              </View>
+              <Controller
+                control={form.control}
+                name="password"
+                render={({ field: { onChange, onBlur, value } }) => (
+                  <GlassInput
+                    label="New password"
+                    placeholder="••••••••"
+                    secureTextEntry={!passwordVisible}
+                    autoComplete="new-password"
+                    editable={!completed && !submitting}
+                    onBlur={onBlur}
+                    onChangeText={onChange}
+                    value={value}
+                    error={form.formState.errors.password?.message}
+                    trailing={
+                      <PasswordVisibilityToggle
+                        visible={passwordVisible}
+                        onToggle={() => setPasswordVisible((v) => !v)}
+                      />
+                    }
+                  />
+                )}
+              />
 
-              <View style={styles.footerDivider} />
+              <Controller
+                control={form.control}
+                name="confirmPassword"
+                render={({ field: { onChange, onBlur, value } }) => (
+                  <GlassInput
+                    label="Confirm password"
+                    placeholder="••••••••"
+                    secureTextEntry={!confirmVisible}
+                    autoComplete="new-password"
+                    editable={!completed && !submitting}
+                    onBlur={onBlur}
+                    onChangeText={onChange}
+                    value={value}
+                    error={form.formState.errors.confirmPassword?.message}
+                    trailing={
+                      <PasswordVisibilityToggle
+                        visible={confirmVisible}
+                        onToggle={() => setConfirmVisible((v) => !v)}
+                      />
+                    }
+                  />
+                )}
+              />
 
-              <Pressable
-                accessibilityRole="button"
-                onPress={() => navigation.navigate('Auth')}
-                style={({ pressed }) => [styles.backLink, pressed && styles.pressed]}>
-                <MaterialIcon name="arrow_back" size={18} color={colors.primary} />
-                <Text style={styles.backLabel}>Back to Login</Text>
-              </Pressable>
-            </GlassCard>
+              <AuthPrimaryButton
+                label="Update password"
+                loading={submitting}
+                success={completed}
+                successLabel="Password updated"
+                showArrow={!completed}
+                disabled={completed}
+                onPress={onSubmit}
+              />
+            </View>
 
-            {!isCompact ? (
-              <View style={styles.progressRow}>
-                <View style={styles.progressTrack}>
-                  <View style={[styles.progressFill, styles.progressFillWide]} />
-                </View>
-                <Text style={styles.progressLabel}>Reset Security Protocol 3/3</Text>
-              </View>
-            ) : null}
-          </ScrollView>
-        </KeyboardAvoidingView>
+            <Pressable
+              accessibilityRole="button"
+              onPress={() => navigation.navigate('ForgotPassword')}
+              style={({ pressed }) => [styles.backLink, pressed && styles.pressed]}>
+              <MaterialIcon name="arrow_back" size={18} color={colors.primary} />
+              <Text style={styles.backLabel}>Request a new code</Text>
+            </Pressable>
+          </GlassCard>
+        </KeyboardAwareScrollView>
       </SafeAreaView>
     </View>
   );
@@ -218,32 +233,63 @@ const styles = StyleSheet.create({
     maxWidth: 448,
     width: '100%',
     alignSelf: 'center',
+    gap: spacing.md,
   },
   containerCompact: {
     paddingVertical: spacing.md,
     justifyContent: 'flex-start',
   },
-  card: {
-    borderRadius: 32,
+  stepRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.sm,
+  },
+  stepDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: colors.surfaceContainerHighest,
+  },
+  stepDotDone: {
+    backgroundColor: colors.primaryFixed,
+  },
+  stepDotActive: {
+    backgroundColor: colors.primary,
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+  },
+  stepLine: {
+    width: 40,
+    height: 3,
+    borderRadius: 2,
+    backgroundColor: colors.surfaceContainerHighest,
+  },
+  stepLineActive: {
+    backgroundColor: colors.primaryFixed,
+  },
+  stepLabel: {
+    ...typography.labelMd,
+    color: colors.onSurfaceVariant,
+    textAlign: 'center',
+    marginBottom: spacing.sm,
   },
   cardHeader: {
     marginBottom: spacing.xl,
-    alignItems: 'center',
+    gap: spacing.xs,
   },
   cardHeaderCompact: {
     marginBottom: spacing.lg,
   },
   headline: {
-    ...typography.headlineLg,
+    ...typography.headlineSm,
     color: colors.primary,
-    textAlign: 'center',
-    marginBottom: spacing.md,
-    letterSpacing: -0.3,
+    fontWeight: '700',
   },
   subtitle: {
     ...typography.bodyMd,
     color: colors.onSurfaceVariant,
-    textAlign: 'center',
   },
   form: {
     gap: spacing.lg,
@@ -251,51 +297,17 @@ const styles = StyleSheet.create({
   formCompact: {
     gap: spacing.md,
   },
-  footerDivider: {
-    marginTop: spacing.lg,
-    marginBottom: spacing.md,
-    borderTopWidth: 1,
-    borderStyle: 'dashed',
-    borderColor: `${colors.outlineVariant}4D`,
-  },
   backLink: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: spacing.xs,
-    minHeight: 44,
+    minHeight: 48,
+    marginTop: spacing.lg,
   },
   backLabel: {
     ...typography.labelLg,
     color: colors.primary,
-  },
-  progressRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: spacing.lg,
-    marginTop: spacing.xl,
-    opacity: 0.4,
-  },
-  progressTrack: {
-    width: 64,
-    height: 6,
-    borderRadius: 999,
-    backgroundColor: `${colors.outlineVariant}4D`,
-    overflow: 'hidden',
-  },
-  progressFill: {
-    width: '33%',
-    height: '100%',
-    backgroundColor: colors.primary,
-    borderRadius: 999,
-  },
-  progressFillWide: {
-    width: '100%',
-  },
-  progressLabel: {
-    ...typography.labelMd,
-    color: colors.outline,
   },
   pressed: {
     opacity: 0.88,

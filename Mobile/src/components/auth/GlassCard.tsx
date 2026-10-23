@@ -1,6 +1,6 @@
 import { type ReactNode } from 'react';
 import { StyleSheet, View, type ViewStyle } from 'react-native';
-import { glass, radius, spacing } from '../../theme/tokens';
+import { colors, radius, spacing } from '../../theme/tokens';
 
 type GlassCardProps = {
   children: ReactNode;
@@ -19,10 +19,8 @@ export function GlassCard({ children, compact = false, style }: GlassCardProps) 
 const styles = StyleSheet.create({
   card: {
     width: '100%',
-    backgroundColor: glass.cardBackground,
+    backgroundColor: colors.surfaceContainerLowest,
     borderRadius: radius.card,
-    borderWidth: 1,
-    borderColor: glass.cardBorder,
     padding: spacing.xl,
     overflow: 'hidden',
   },

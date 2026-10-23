@@ -1,6 +1,7 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { type ReactNode } from 'react';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { KeyboardProvider } from 'react-native-keyboard-controller';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import Toast from 'react-native-toast-message';
 import { appToastConfig, APP_TOAST_TOP_OFFSET } from '../components/ui/AppToast';
@@ -19,19 +20,21 @@ const queryClient = new QueryClient({
 export function AppProviders({ children }: { children: ReactNode }) {
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
-      <SafeAreaProvider>
-        <QueryClientProvider client={queryClient}>
-          <ScanCacheHydrator />
-          <ConfirmDialogProvider>
-            {children}
-          </ConfirmDialogProvider>
-          <Toast
-            config={appToastConfig}
-            position="top"
-            topOffset={APP_TOAST_TOP_OFFSET}
-          />
-        </QueryClientProvider>
-      </SafeAreaProvider>
+      <KeyboardProvider>
+        <SafeAreaProvider>
+          <QueryClientProvider client={queryClient}>
+            <ScanCacheHydrator />
+            <ConfirmDialogProvider>
+              {children}
+            </ConfirmDialogProvider>
+            <Toast
+              config={appToastConfig}
+              position="top"
+              topOffset={APP_TOAST_TOP_OFFSET}
+            />
+          </QueryClientProvider>
+        </SafeAreaProvider>
+      </KeyboardProvider>
     </GestureHandlerRootView>
   );
 }

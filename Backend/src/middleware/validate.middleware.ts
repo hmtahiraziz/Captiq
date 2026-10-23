@@ -7,6 +7,7 @@ declare global {
     interface Locals {
       validatedBody?: unknown;
       validatedQuery?: unknown;
+      validatedParams?: unknown;
     }
   }
 }
@@ -37,6 +38,21 @@ export function validateQuery<T>(schema: ZodType<T>) {
     }
 
     res.locals.validatedQuery = result.data;
+    next();
+  };
+}
+
+export function validateParams<T>(schema: ZodType<T>) {
+  return (req: Request, res: Response, next: NextFunction): void => {
+    const result = schema.safeParse(req.params);
+
+    if (!result.success) {
+      const message = result.error.issues.map((issue) => issue.message).join(', ');
+      next(new ValidationError(message));
+      return;
+    }
+
+    res.locals.validatedParams = result.data;
     next();
   };
 }

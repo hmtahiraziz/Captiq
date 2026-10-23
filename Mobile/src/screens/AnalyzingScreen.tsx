@@ -1,14 +1,12 @@
 import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
+import LinearGradient from 'react-native-linear-gradient';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { AnalyzingProgressRing } from '../components/scan/AnalyzingProgressRing';
-import {
-  AnalyzingStepRow,
-  analyzingGlassSheet,
-} from '../components/scan/AnalyzingProgressPill';
+import { AnalyzingStepRow } from '../components/scan/AnalyzingProgressPill';
 import { MaterialIcon } from '../components/profile/MaterialIcon';
 import type { RootStackParamList } from '../navigation/types';
-import { colors, spacing, typography } from '../theme/tokens';
+import { colors, radius, spacing, typography } from '../theme/tokens';
 import { useAnalyzingViewModel } from '../viewmodels/useAnalyzingViewModel';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Analyzing'>;
@@ -25,10 +23,13 @@ export function AnalyzingScreen({ route, navigation }: Props) {
 
   return (
     <View style={styles.root}>
-      <Image source={{ uri: imageUri }} style={styles.image} resizeMode="cover" />
-      <View style={styles.overlay} />
+      <LinearGradient
+        colors={['#F5F2FF', colors.background, '#E8F4FF']}
+        locations={[0, 0.5, 1]}
+        style={StyleSheet.absoluteFill}
+      />
 
-      <SafeAreaView style={styles.safe} edges={['top']}>
+      <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
         <View style={styles.header}>
           <Pressable
             accessibilityRole="button"
@@ -37,38 +38,42 @@ export function AnalyzingScreen({ route, navigation }: Props) {
             style={({ pressed }) => [styles.closeButton, pressed && styles.pressed]}>
             <MaterialIcon name="close" size={22} color={colors.onSurface} />
           </Pressable>
+          <Text style={styles.headerTitle}>Captiq AI</Text>
           <View style={styles.headerSpacer} />
         </View>
 
         <View style={styles.center}>
+          <View style={styles.previewWrap}>
+            <Image source={{ uri: imageUri }} style={styles.preview} resizeMode="cover" />
+          </View>
+
           <View style={styles.copy}>
-            <Text style={styles.title}>Analyzing image...</Text>
+            <Text style={styles.title}>Analyzing…</Text>
             <Text style={styles.subtitle}>
-              Identifying subjects and color profiles using Vision Intelligence.
+              Captiq is reading subjects, colors, and context from your image.
             </Text>
           </View>
 
-          <AnalyzingProgressRing percent={percent} />
+          <View style={styles.ringPlate}>
+            <AnalyzingProgressRing percent={percent} />
+          </View>
         </View>
-      </SafeAreaView>
 
-      <View style={analyzingGlassSheet.sheet}>
-        <View style={analyzingGlassSheet.handle} />
-        <View style={styles.steps}>
+        <View style={styles.sheet}>
           <AnalyzingStepRow
             icon="visibility"
-            title="Subject Detected"
-            subtitle={subjectDone ? 'Visual subject identified' : 'Scanning frame...'}
+            title="Subject"
+            subtitle={subjectDone ? 'Identified' : 'Scanning…'}
             done={subjectDone}
           />
           <AnalyzingStepRow
             icon="palette"
-            title="Color Profile"
-            subtitle={colorDone ? 'Palette analysis complete' : 'Reading colors...'}
+            title="Colors"
+            subtitle={colorDone ? 'Complete' : 'Reading…'}
             done={colorDone}
           />
         </View>
-      </View>
+      </SafeAreaView>
     </View>
   );
 }
@@ -76,14 +81,7 @@ export function AnalyzingScreen({ route, navigation }: Props) {
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: colors.surface,
-  },
-  image: {
-    ...StyleSheet.absoluteFill,
-  },
-  overlay: {
-    ...StyleSheet.absoluteFill,
-    backgroundColor: 'rgba(252, 248, 255, 0.82)',
+    backgroundColor: colors.background,
   },
   safe: {
     flex: 1,
@@ -94,13 +92,20 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: spacing.marginMobile,
     paddingTop: spacing.sm,
+    minHeight: 56,
   },
   closeButton: {
     width: 40,
     height: 40,
     borderRadius: 20,
+    backgroundColor: colors.surfaceContainerLowest,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  headerTitle: {
+    ...typography.labelLg,
+    color: colors.primary,
+    fontWeight: '700',
   },
   headerSpacer: {
     width: 40,
@@ -110,15 +115,27 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: spacing.marginMobile,
-    gap: spacing.xl,
+    gap: spacing.lg,
+  },
+  previewWrap: {
+    width: 88,
+    height: 88,
+    borderRadius: radius.thumbnail,
+    overflow: 'hidden',
+    backgroundColor: colors.surfaceContainer,
+  },
+  preview: {
+    width: '100%',
+    height: '100%',
   },
   copy: {
     alignItems: 'center',
-    gap: spacing.sm,
+    gap: spacing.xs,
   },
   title: {
-    ...typography.headlineLg,
-    color: colors.onSurface,
+    ...typography.headlineMd,
+    color: colors.primary,
+    fontWeight: '700',
     textAlign: 'center',
   },
   subtitle: {
@@ -127,11 +144,23 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     maxWidth: 280,
   },
-  steps: {
-    gap: spacing.md,
+  ringPlate: {
+    width: 220,
+    height: 220,
+    borderRadius: 110,
+    backgroundColor: colors.surfaceContainerLowest,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  sheet: {
+    marginHorizontal: spacing.marginMobile,
+    marginBottom: spacing.lg,
+    backgroundColor: colors.surfaceContainerLowest,
+    borderRadius: radius.card,
+    padding: spacing.md,
+    gap: spacing.sm,
   },
   pressed: {
-    opacity: 0.85,
-    transform: [{ scale: 0.95 }],
+    opacity: 0.88,
   },
 });

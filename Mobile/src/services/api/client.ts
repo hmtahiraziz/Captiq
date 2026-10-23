@@ -4,6 +4,7 @@ import axios, {
 } from 'axios';
 import { API_BASE_URL } from '../../config/env';
 import type { ApiErrorBody, ApiResponse } from '../../types/api';
+import { emitAuthSessionInvalidated } from '../../lib/auth/authSessionEvents';
 import { clearTokens, getTokens, saveTokens } from '../../lib/storage/tokenStorage';
 
 export class ApiClientError extends Error {
@@ -85,6 +86,7 @@ apiClient.interceptors.response.use(
 
       if (!tokens?.refreshToken) {
         await clearTokens();
+        emitAuthSessionInvalidated();
         resolveRefreshQueue(null);
         return Promise.reject(error);
       }
@@ -98,6 +100,7 @@ apiClient.interceptors.response.use(
 
       if (!data.success) {
         await clearTokens();
+        emitAuthSessionInvalidated();
         resolveRefreshQueue(null);
         return Promise.reject(error);
       }
@@ -112,6 +115,7 @@ apiClient.interceptors.response.use(
       return apiClient(originalRequest);
     } catch (refreshError) {
       await clearTokens();
+      emitAuthSessionInvalidated();
       resolveRefreshQueue(null);
       return Promise.reject(refreshError);
     } finally {

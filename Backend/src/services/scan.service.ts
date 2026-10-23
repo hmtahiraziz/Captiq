@@ -2,25 +2,72 @@ import crypto from 'node:crypto';
 import sharp from 'sharp';
 import { and, desc, eq, lt } from 'drizzle-orm';
 import { db } from '../db/client.js';
-import { messages, scans } from '../db/schema.js';
-import { deleteScanImage, getThumbnailUrl, uploadScanImage } from './cloudinary.service.js';
+import { messages, scans, users } from '../db/schema.js';
+import {
+  deleteScanImage,
+  getSignedImageUrl,
+  getThumbnailUrl,
+  uploadScanImage,
+} from './cloudinary.service.js';
 import { answerAboutImage, defaultVisionModel, generateCaption } from './openai.service.js';
-import { NotFoundError } from '../utils/errors.js';
+import {
+  assertMessageQuotaAvailable,
+  assertScanQuotaAvailable,
+  consumeMessageQuota,
+  consumeScanQuota,
+} from './quota.service.js';
+import { ForbiddenError, NotFoundError, ValidationError } from '../utils/errors.js';
+import { assertValidImageBuffer, MAX_INPUT_PIXELS } from '../utils/image.js';
+import { CURRENT_CONSENT_VERSION } from '../constants/consent.js';
 import type { ListScansQuery } from '../schemas/scan.schema.js';
+
+async function assertAiConsent(userId: string): Promise<void> {
+  const user = await db.query.users.findFirst({
+    where: eq(users.id, userId),
+    columns: { consentVersion: true },
+  });
+
+  if (!user || user.consentVersion !== CURRENT_CONSENT_VERSION) {
+    throw new ForbiddenError(
+      'Please accept the AI processing consent before scanning.',
+    );
+  }
+}
 
 const MAX_IMAGE_DIMENSION = 1024;
 
+function isPixelLimitError(error: unknown): boolean {
+  if (!(error instanceof Error)) {
+    return false;
+  }
+  const message = error.message.toLowerCase();
+  return (
+    message.includes('pixel limit') ||
+    message.includes('input image exceeds') ||
+    message.includes('limitinputpixels')
+  );
+}
+
 export async function resizeImage(buffer: Buffer): Promise<Buffer> {
-  return sharp(buffer)
-    .rotate()
-    .resize({
-      width: MAX_IMAGE_DIMENSION,
-      height: MAX_IMAGE_DIMENSION,
-      fit: 'inside',
-      withoutEnlargement: true,
-    })
-    .jpeg({ quality: 85 })
-    .toBuffer();
+  try {
+    return await sharp(buffer, { limitInputPixels: MAX_INPUT_PIXELS })
+      .rotate()
+      .resize({
+        width: MAX_IMAGE_DIMENSION,
+        height: MAX_IMAGE_DIMENSION,
+        fit: 'inside',
+        withoutEnlargement: true,
+      })
+      .jpeg({ quality: 85 })
+      .toBuffer();
+  } catch (error) {
+    if (isPixelLimitError(error)) {
+      throw new ValidationError(
+        'This photo is too large to process. Try a smaller image or capture again at a lower resolution.',
+      );
+    }
+    throw error;
+  }
 }
 
 export interface ScanResponse {
@@ -36,7 +83,7 @@ function toScanResponse(scan: typeof scans.$inferSelect): ScanResponse {
   return {
     id: scan.id,
     caption: scan.caption,
-    imageUrl: scan.imageUrl,
+    imageUrl: getSignedImageUrl(scan.cloudinaryPublicId),
     thumbnailUrl: getThumbnailUrl(scan.cloudinaryPublicId),
     model: scan.model,
     createdAt: scan.createdAt,
@@ -44,29 +91,48 @@ function toScanResponse(scan: typeof scans.$inferSelect): ScanResponse {
 }
 
 export async function createScan(userId: string, imageBuffer: Buffer): Promise<ScanResponse> {
+  assertValidImageBuffer(imageBuffer);
+  await assertAiConsent(userId);
+  await assertScanQuotaAvailable(userId);
+
   const scanId = crypto.randomUUID();
   const resized = await resizeImage(imageBuffer);
-  const { secureUrl, publicId } = await uploadScanImage(resized, userId, scanId);
-  const caption = await generateCaption(secureUrl);
+  const { publicId } = await uploadScanImage(resized, userId, scanId);
 
-  const [scan] = await db
-    .insert(scans)
-    .values({
-      id: scanId,
-      userId,
-      imageUrl: secureUrl,
-      cloudinaryPublicId: publicId,
-      caption,
-      model: defaultVisionModel,
-    })
-    .returning();
+  let caption: string;
 
-  if (!scan) {
+  try {
+    const signedForAi = getSignedImageUrl(publicId, 10 * 60);
+    caption = await generateCaption(signedForAi);
+  } catch (error) {
     await deleteScanImage(publicId).catch(() => undefined);
-    throw new Error('Failed to save scan');
+    throw error;
   }
 
-  return toScanResponse(scan);
+  try {
+    const [scan] = await db
+      .insert(scans)
+      .values({
+        id: scanId,
+        userId,
+        imageUrl: publicId,
+        cloudinaryPublicId: publicId,
+        caption,
+        model: defaultVisionModel,
+      })
+      .returning();
+
+    if (!scan) {
+      await deleteScanImage(publicId).catch(() => undefined);
+      throw new Error('Failed to save scan');
+    }
+
+    await consumeScanQuota(userId);
+    return toScanResponse(scan);
+  } catch (error) {
+    await deleteScanImage(publicId).catch(() => undefined);
+    throw error;
+  }
 }
 
 export async function getScanById(userId: string, scanId: string): Promise<ScanResponse> {
@@ -86,7 +152,7 @@ export async function listScans(userId: string, query: ListScansQuery) {
 
   if (query.cursor) {
     const cursorScan = await db.query.scans.findFirst({
-      where: eq(scans.id, query.cursor),
+      where: and(eq(scans.id, query.cursor), eq(scans.userId, userId)),
       columns: { createdAt: true },
     });
 
@@ -121,8 +187,8 @@ export async function deleteScan(userId: string, scanId: string): Promise<void> 
     throw new NotFoundError('Scan not found');
   }
 
-  await db.delete(scans).where(eq(scans.id, scanId));
   await deleteScanImage(scan.cloudinaryPublicId).catch(() => undefined);
+  await db.delete(scans).where(and(eq(scans.id, scanId), eq(scans.userId, userId)));
 }
 
 export async function getScanMessages(userId: string, scanId: string) {
@@ -142,6 +208,9 @@ export async function getScanMessages(userId: string, scanId: string) {
 }
 
 export async function sendScanMessage(userId: string, scanId: string, content: string) {
+  await assertAiConsent(userId);
+  await assertMessageQuotaAvailable(userId);
+
   const scan = await db.query.scans.findFirst({
     where: and(eq(scans.id, scanId), eq(scans.userId, userId)),
   });
@@ -179,25 +248,32 @@ export async function sendScanMessage(userId: string, scanId: string, content: s
     throw new Error('Failed to save user message');
   }
 
-  const assistantContent = await answerAboutImage(scan.imageUrl, recentHistory, content);
+  try {
+    const signedForAi = getSignedImageUrl(scan.cloudinaryPublicId, 10 * 60);
+    const assistantContent = await answerAboutImage(signedForAi, recentHistory, content);
 
-  const [assistantMessage] = await db
-    .insert(messages)
-    .values({
-      scanId,
-      role: 'assistant',
-      content: assistantContent,
-    })
-    .returning({
-      id: messages.id,
-      role: messages.role,
-      content: messages.content,
-      createdAt: messages.createdAt,
-    });
+    const [assistantMessage] = await db
+      .insert(messages)
+      .values({
+        scanId,
+        role: 'assistant',
+        content: assistantContent,
+      })
+      .returning({
+        id: messages.id,
+        role: messages.role,
+        content: messages.content,
+        createdAt: messages.createdAt,
+      });
 
-  if (!assistantMessage) {
-    throw new Error('Failed to save assistant message');
+    if (!assistantMessage) {
+      throw new Error('Failed to save assistant message');
+    }
+
+    await consumeMessageQuota(userId);
+    return { userMessage, assistantMessage };
+  } catch (error) {
+    await db.delete(messages).where(eq(messages.id, userMessage.id)).catch(() => undefined);
+    throw error;
   }
-
-  return { userMessage, assistantMessage };
 }
