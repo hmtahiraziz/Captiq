@@ -1,44 +1,60 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import {
-  ActivityIndicator,
   FlatList,
   Image,
-  KeyboardAvoidingView,
-  Platform,
   Pressable,
+  ScrollView,
   StyleSheet,
   Text,
   TextInput,
   View,
   useWindowDimensions,
 } from 'react-native';
+import { KeyboardStickyView } from 'react-native-keyboard-controller';
 import {
   SafeAreaView,
   useSafeAreaInsets,
 } from 'react-native-safe-area-context';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
+import { useQueryClient } from '@tanstack/react-query';
 import Toast from 'react-native-toast-message';
 import { AiCaptionCard } from '../components/scan/AiCaptionCard';
 import { ChatBubble } from '../components/scan/ChatBubble';
 import { MaterialIcon } from '../components/profile/MaterialIcon';
 import { LoadingOverlay } from '../components/ui/LoadingOverlay';
-import { useMessages, useScan, useSendMessage } from '../hooks/useScans';
 import { useKeyboardHeight } from '../hooks/useKeyboardHeight';
+import { quotaKeys } from '../hooks/useQuota';
+import { useMessages, useScan, useSendMessage } from '../hooks/useScans';
+import { formatAiText } from '../lib/format/aiText';
+import { shareText } from '../lib/share/shareText';
 import type { RootStackParamList } from '../navigation/types';
 import type { Message } from '../types/api';
 import { getApiErrorMessage } from '../services/api/client';
-import { colors, glass, radius, spacing, typography } from '../theme/tokens';
+import { colors, radius, spacing, typography } from '../theme/tokens';
 
-const COMPOSER_FALLBACK_HEIGHT = 88;
-
-const KEYBOARD_SCROLL_DELAY_MS = Platform.OS === 'android' ? 300 : 150;
-
-/** Samsung One UI toolbar above keys — tune 36–52 if input overlaps or gaps. */
-const ANDROID_KEYBOARD_EXTRA = 55;
+const FOLLOW_UP_SUGGESTIONS = [
+  'What is the main subject?',
+  'Describe the colors and mood',
+  'Is there any text I should read?',
+] as const;
 
 type ScanScreenProps =
   | NativeStackScreenProps<RootStackParamList, 'ScanResult'>
   | NativeStackScreenProps<RootStackParamList, 'ScanDetail'>;
+
+function buildThreadShareText(caption: string, messages: Message[]): string {
+  const parts = [`Captiq scan`, '', formatAiText(caption) || 'No caption'].filter(Boolean);
+
+  if (messages.length > 0) {
+    parts.push('', 'Follow-up');
+    for (const message of messages) {
+      const label = message.role === 'user' ? 'You' : 'Captiq';
+      parts.push('', `${label}:`, formatAiText(message.content));
+    }
+  }
+
+  return parts.join('\n');
+}
 
 export function ScanDetailScreen({ route, navigation }: ScanScreenProps) {
   const scanId = route.params.scanId;
@@ -47,73 +63,68 @@ export function ScanDetailScreen({ route, navigation }: ScanScreenProps) {
     'caption' in route.params ? route.params.caption : undefined;
 
   const { height: windowHeight } = useWindowDimensions();
-  const heroHeight = Math.round(windowHeight * 0.36);
   const insets = useSafeAreaInsets();
   const keyboardHeight = useKeyboardHeight();
   const keyboardOpen = keyboardHeight > 0;
+  const queryClient = useQueryClient();
 
   const { data: scan, isLoading, isError } = useScan(scanId);
   const { data: messages = [] } = useMessages(scanId);
   const sendMessage = useSendMessage(scanId);
   const [input, setInput] = useState('');
-  const [composerHeight, setComposerHeight] = useState(COMPOSER_FALLBACK_HEIGHT);
-  const listRef = useRef<FlatList<Message>>(null);
   const inputRef = useRef<TextInput>(null);
 
   const displayImage = imageUri ?? scan?.imageUrl;
   const caption = scan?.caption ?? captionParam ?? '';
-  const canSend = input.trim().length > 0 && !sendMessage.isPending;
+  const isSending = sendMessage.isPending;
+  const canSend = input.trim().length > 0 && !isSending;
+  const chatting = messages.length > 0;
+  const showSuggestions = messages.length === 0 && !isSending;
 
-  const scrollToEnd = useCallback((animated = true) => {
-    requestAnimationFrame(() => {
-      listRef.current?.scrollToEnd({ animated });
-    });
-  }, []);
+  const heroHeight = Math.round(windowHeight * (chatting ? 0.18 : 0.28));
 
-  const handleInputFocus = useCallback(() => {
-    if (messages.length === 0) {
-      return;
-    }
+  /** Newest first — inverted list keeps the latest turn above the ask field. */
+  const chatItems = useMemo(() => [...messages].reverse(), [messages]);
 
-    setTimeout(() => scrollToEnd(), KEYBOARD_SCROLL_DELAY_MS);
-  }, [messages.length, scrollToEnd]);
+  const sendQuestion = useCallback(
+    async (content: string) => {
+      const trimmed = content.trim();
+      if (!trimmed || isSending) {
+        return;
+      }
 
-  useEffect(() => {
-    if (messages.length === 0) {
-      return;
-    }
+      setInput('');
 
-    scrollToEnd();
-  }, [messages.length, scrollToEnd]);
+      try {
+        await sendMessage.mutateAsync(trimmed);
+        await queryClient.invalidateQueries({ queryKey: quotaKeys.all });
+      } catch (error) {
+        setInput(trimmed);
+        Toast.show({ type: 'error', text1: getApiErrorMessage(error) });
+      }
+    },
+    [isSending, queryClient, sendMessage],
+  );
 
-  useEffect(() => {
-    if (!keyboardOpen || messages.length === 0) {
-      return;
-    }
+  const handleSend = () => {
+    void sendQuestion(input);
+  };
 
-    const timer = setTimeout(() => scrollToEnd(), KEYBOARD_SCROLL_DELAY_MS);
-    return () => clearTimeout(timer);
-  }, [keyboardOpen, keyboardHeight, messages.length, scrollToEnd]);
-
-  const handleSend = async () => {
-    const content = input.trim();
-    if (!content || sendMessage.isPending) {
-      return;
-    }
-
-    setInput('');
-
+  const handleShareThread = async () => {
     try {
-      await sendMessage.mutateAsync(content);
-    } catch (error) {
-      setInput(content);
-      Toast.show({ type: 'error', text1: getApiErrorMessage(error) });
+      await shareText(buildThreadShareText(caption, messages), 'Captiq conversation');
+    } catch {
+      Toast.show({ type: 'error', text1: 'Could not share conversation' });
     }
   };
 
   const renderMessage = useCallback(
     ({ item }: { item: Message }) => (
-      <View style={styles.messageRow}>
+      <View
+        style={[
+          styles.messageRow,
+          item.role === 'user' ? styles.questionRow : styles.answerRow,
+        ]}>
         <ChatBubble role={item.role} content={item.content} />
       </View>
     ),
@@ -128,8 +139,9 @@ export function ScanDetailScreen({ route, navigation }: ScanScreenProps) {
     return <LoadingOverlay message="Could not load scan" />;
   }
 
-  const listHeader = (
-    <View style={styles.headerBlock}>
+  // Renders at TOP when the list is inverted.
+  const contextHeader = (
+    <View style={styles.contextBlock}>
       <View style={[styles.hero, { height: heroHeight }]}>
         {displayImage ? (
           <Image source={{ uri: displayImage }} style={styles.heroImage} resizeMode="cover" />
@@ -138,107 +150,122 @@ export function ScanDetailScreen({ route, navigation }: ScanScreenProps) {
         )}
 
         <SafeAreaView edges={['top']} style={styles.heroOverlay}>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Go back"
-            onPress={() => navigation.goBack()}
-            style={({ pressed }) => [styles.backButton, pressed && styles.pressed]}>
-            <MaterialIcon name="arrow_back" size={18} color={colors.onSurfaceVariant} />
-          </Pressable>
+          <View style={styles.heroTopRow}>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Go back"
+              onPress={() => navigation.goBack()}
+              style={({ pressed }) => [styles.backButton, pressed && styles.pressed]}>
+              <MaterialIcon name="arrow_back" size={18} color={colors.onSurface} />
+            </Pressable>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Share conversation"
+              onPress={handleShareThread}
+              style={({ pressed }) => [styles.backButton, pressed && styles.pressed]}>
+              <MaterialIcon name="share" size={18} color={colors.onSurface} />
+            </Pressable>
+          </View>
         </SafeAreaView>
       </View>
 
       <View style={styles.contentBlock}>
-        <AiCaptionCard caption={caption} model={scan?.model} />
+        <AiCaptionCard caption={caption} />
         <View style={styles.followUpHeader}>
-          <MaterialIcon name="forum" size={20} color={colors.primary} />
           <Text style={styles.followUpTitle}>Follow-up</Text>
+          {showSuggestions ? (
+            <Text style={styles.followUpHint}>Ask a follow-up about this image</Text>
+          ) : null}
         </View>
+
+        {showSuggestions ? (
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.suggestionRow}
+            keyboardShouldPersistTaps="handled">
+            {FOLLOW_UP_SUGGESTIONS.map((suggestion) => (
+              <Pressable
+                key={suggestion}
+                accessibilityRole="button"
+                disabled={isSending}
+                onPress={() => void sendQuestion(suggestion)}
+                style={({ pressed }) => [
+                  styles.suggestionChip,
+                  pressed && styles.pressed,
+                ]}>
+                <Text style={styles.suggestionText}>{suggestion}</Text>
+              </Pressable>
+            ))}
+          </ScrollView>
+        ) : null}
       </View>
     </View>
   );
 
-  const composerBottomInset = keyboardOpen ? spacing.sm : Math.max(insets.bottom, spacing.md);
-  const androidKeyboardExtra =
-    Platform.OS === 'android' && keyboardOpen ? ANDROID_KEYBOARD_EXTRA : 0;
-  const listBottomPadding = composerHeight + spacing.xl + androidKeyboardExtra;
+  // When the keyboard is open, KeyboardStickyView lifts the dock — drop home-indicator padding.
+  const composerBottomPad = keyboardOpen
+    ? spacing.sm
+    : Math.max(insets.bottom, spacing.sm);
 
   return (
-    <KeyboardAvoidingView
-      style={styles.root}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      enabled={Platform.OS === 'ios'}
-      keyboardVerticalOffset={insets.top}>
+    <View style={styles.root}>
       <FlatList
-        ref={listRef}
-        data={messages}
+        inverted
+        data={chatItems}
         keyExtractor={(item) => item.id}
         renderItem={renderMessage}
-        ListHeaderComponent={listHeader}
-        style={styles.list}
-        contentContainerStyle={[
-          styles.listContent,
-          { paddingBottom: listBottomPadding },
-        ]}
-        keyboardShouldPersistTaps="handled"
-        keyboardDismissMode="on-drag"
-        showsVerticalScrollIndicator={false}
-        ItemSeparatorComponent={() => <View style={styles.messageGap} />}
-        ListEmptyComponent={
-          <Text style={styles.emptyChat}>
-            Ask a follow-up question about this image
-          </Text>
+        ListFooterComponent={contextHeader}
+        ListHeaderComponent={
+          // Inverted: this sits above the ask field. Grow with the keyboard so
+          // the latest messages stay visible while KeyboardStickyView lifts.
+          <View style={{ height: keyboardOpen ? keyboardHeight + spacing.sm : spacing.sm }} />
         }
+        style={styles.list}
+        contentContainerStyle={styles.listContent}
+        keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="interactive"
+        showsVerticalScrollIndicator={false}
+        maintainVisibleContentPosition={{
+          minIndexForVisible: 0,
+          autoscrollToTopThreshold: 80,
+        }}
       />
 
-      <View
-        onLayout={(event) => {
-          setComposerHeight(event.nativeEvent.layout.height);
-        }}
-        style={[
-          styles.composerDock,
-          {
-            paddingBottom: composerBottomInset,
-            marginBottom: androidKeyboardExtra,
-          },
-        ]}>
-        <View style={styles.composer}>
-          <TextInput
-            ref={inputRef}
-            style={styles.input}
-            placeholder="Ask about this image..."
-            placeholderTextColor="rgba(71, 69, 85, 0.55)"
-            value={input}
-            onChangeText={setInput}
-            onFocus={handleInputFocus}
-            multiline
-            maxLength={1000}
-            editable={!sendMessage.isPending}
-            returnKeyType="send"
-            blurOnSubmit={false}
-            onSubmitEditing={handleSend}
-            textAlignVertical="top"
-          />
-          <Pressable
-            accessibilityRole="button"
-            disabled={!canSend}
-            onPress={handleSend}
-            style={({ pressed }) => [
-              styles.sendPressable,
-              !canSend && styles.sendDisabled,
-              pressed && canSend && styles.pressed,
-            ]}>
-            <View style={styles.sendButton}>
-              {sendMessage.isPending ? (
-                <ActivityIndicator color={colors.onPrimary} size="small" />
-              ) : (
+      <KeyboardStickyView offset={{ closed: 0, opened: 0 }}>
+        <View style={[styles.composerDock, { paddingBottom: composerBottomPad }]}>
+          <View style={styles.composer}>
+            <TextInput
+              ref={inputRef}
+              style={styles.input}
+              placeholder="Ask anything…"
+              placeholderTextColor={colors.onSurfaceVariant}
+              value={input}
+              onChangeText={setInput}
+              multiline
+              maxLength={1000}
+              returnKeyType="default"
+              blurOnSubmit={false}
+              textAlignVertical="top"
+            />
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Send"
+              disabled={!canSend}
+              onPress={handleSend}
+              style={({ pressed }) => [
+                styles.sendPressable,
+                !canSend && styles.sendDisabled,
+                pressed && canSend && styles.pressed,
+              ]}>
+              <View style={styles.sendButton}>
                 <MaterialIcon name="send" size={20} color={colors.onPrimary} filled />
-              )}
-            </View>
-          </Pressable>
+              </View>
+            </Pressable>
+          </View>
         </View>
-      </View>
-    </KeyboardAvoidingView>
+      </KeyboardStickyView>
+    </View>
   );
 }
 
@@ -253,8 +280,9 @@ const styles = StyleSheet.create({
   listContent: {
     flexGrow: 1,
   },
-  headerBlock: {
+  contextBlock: {
     backgroundColor: colors.background,
+    paddingBottom: spacing.md,
   },
   hero: {
     width: '100%',
@@ -273,75 +301,79 @@ const styles = StyleSheet.create({
     ...StyleSheet.absoluteFill,
     justifyContent: 'flex-start',
   },
+  heroTopRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: spacing.marginMobile,
+    paddingTop: spacing.sm,
+  },
   backButton: {
-    marginTop: spacing.sm,
-    marginLeft: spacing.marginMobile,
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: glass.cardBackground,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.2)',
+    backgroundColor: colors.surfaceContainerLowest,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 6,
-    elevation: 3,
   },
   contentBlock: {
     paddingHorizontal: spacing.marginMobile,
     paddingTop: spacing.lg,
-    gap: spacing.xl,
+    gap: spacing.md,
   },
   followUpHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
+    gap: spacing.xs,
   },
   followUpTitle: {
     ...typography.headlineSm,
     color: colors.onSurface,
+    fontWeight: '700',
+  },
+  followUpHint: {
+    ...typography.bodyMd,
+    color: colors.onSurfaceVariant,
+  },
+  suggestionRow: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+    paddingRight: spacing.sm,
+  },
+  suggestionChip: {
+    backgroundColor: colors.primaryFixed,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderRadius: radius.pill,
+    maxWidth: 220,
+  },
+  suggestionText: {
+    ...typography.labelMd,
+    color: colors.primary,
+    fontWeight: '600',
   },
   messageRow: {
     paddingHorizontal: spacing.marginMobile,
   },
-  messageGap: {
-    height: spacing.md,
+  questionRow: {
+    marginTop: spacing.md,
+    marginBottom: spacing.xs,
   },
-  emptyChat: {
-    ...typography.bodyMd,
-    color: colors.onSurfaceVariant,
-    textAlign: 'center',
-    paddingVertical: spacing.xl,
-    paddingHorizontal: spacing.marginMobile,
+  answerRow: {
+    marginVertical: spacing.xs,
   },
   composerDock: {
-    backgroundColor: '#FFFFFF',
-    borderTopWidth: 1,
-    borderTopColor: colors.outlineVariant,
+    backgroundColor: colors.background,
     paddingHorizontal: spacing.marginMobile,
-    paddingTop: spacing.md,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: -4 },
-    shadowOpacity: 0.06,
-    shadowRadius: 12,
-    elevation: 8,
+    paddingTop: spacing.sm,
   },
   composer: {
     flexDirection: 'row',
     alignItems: 'flex-end',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.surfaceContainerLow,
     borderRadius: radius.pill,
-    borderWidth: 1,
-    borderColor: 'rgba(200, 196, 216, 0.6)',
     paddingLeft: spacing.md,
     paddingRight: 6,
     paddingVertical: 6,
     minHeight: 56,
-    maxWidth: 672,
-    alignSelf: 'center',
     width: '100%',
   },
   input: {
@@ -369,10 +401,9 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   sendDisabled: {
-    opacity: 0.45,
+    opacity: 0.4,
   },
   pressed: {
-    opacity: 0.92,
-    transform: [{ scale: 0.95 }],
+    opacity: 0.88,
   },
 });

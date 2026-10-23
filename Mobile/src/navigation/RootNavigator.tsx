@@ -11,8 +11,10 @@ import { ScanResultScreen } from '../screens/ScanResultScreen';
 import { SplashScreen } from '../screens/SplashScreen';
 import { AccountSettingsScreen } from '../screens/settings/AccountSettingsScreen';
 import { AboutCaptiqScreen } from '../screens/settings/AboutCaptiqScreen';
+import { LegalDocumentScreen } from '../screens/settings/LegalDocumentScreen';
 import { PrivacySettingsScreen } from '../screens/settings/PrivacySettingsScreen';
 import { useAuthStore } from '../stores/useAuthStore';
+import { linking } from './linking';
 import { MainTabs } from './MainTabs';
 import type { RootStackParamList } from './types';
 
@@ -33,7 +35,7 @@ export function RootNavigator() {
   }
 
   return (
-    <NavigationContainer>
+    <NavigationContainer linking={linking}>
       <Stack.Navigator screenOptions={{ headerShown: false }}>
         {!isAuthenticated ? (
           <>
@@ -62,6 +64,11 @@ export function RootNavigator() {
             <Stack.Screen name="AccountSettings" component={AccountSettingsScreen} />
             <Stack.Screen name="PrivacySettings" component={PrivacySettingsScreen} />
             <Stack.Screen name="AboutCaptiq" component={AboutCaptiqScreen} />
+            <Stack.Screen
+              name="LegalDocument"
+              component={LegalDocumentScreen}
+              options={{ animation: 'slide_from_right' }}
+            />
           </>
         )}
       </Stack.Navigator>

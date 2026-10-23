@@ -4,22 +4,40 @@ import { db } from '../db/client.js';
 import { users, refreshTokens, passwordResetTokens } from '../db/schema.js';
 import {
   generateRefreshToken,
-  generatePasswordResetToken,
+  generatePasswordResetCode,
   getRefreshTokenExpiry,
   getPasswordResetExpiry,
   hashToken,
   signAccessToken,
 } from '../utils/jwt.js';
-import { ConflictError, NotFoundError, UnauthorizedError, ValidationError } from '../utils/errors.js';
+import {
+  ConflictError,
+  NotFoundError,
+  UnauthorizedError,
+  ValidationError,
+} from '../utils/errors.js';
 import type {
+  ChangePasswordInput,
   ForgotPasswordInput,
   LoginInput,
+  RecordConsentInput,
   RegisterInput,
   ResetPasswordInput,
 } from '../schemas/auth.schema.js';
-import { buildPasswordResetUrl, sendPasswordResetEmail } from './email.service.js';
+import { CURRENT_CONSENT_VERSION } from '../constants/consent.js';
+import { sendPasswordResetEmail } from './email.service.js';
+import { deleteUserScanFolder } from './cloudinary.service.js';
 
 const BCRYPT_ROUNDS = 12;
+
+let dummyHashPromise: Promise<string> | null = null;
+
+function getDummyPasswordHash(): Promise<string> {
+  if (!dummyHashPromise) {
+    dummyHashPromise = bcrypt.hash('__captiq_timing_dummy__', BCRYPT_ROUNDS);
+  }
+  return dummyHashPromise;
+}
 
 export interface AuthTokens {
   accessToken: string;
@@ -28,6 +46,13 @@ export interface AuthTokens {
     id: string;
     email: string;
   };
+}
+
+async function revokeAllRefreshTokens(userId: string, at: Date = new Date()): Promise<void> {
+  await db
+    .update(refreshTokens)
+    .set({ revokedAt: at })
+    .where(and(eq(refreshTokens.userId, userId), isNull(refreshTokens.revokedAt)));
 }
 
 async function createTokens(userId: string, email: string): Promise<AuthTokens> {
@@ -79,48 +104,60 @@ export async function loginUser(input: LoginInput): Promise<AuthTokens> {
     where: eq(users.email, input.email.toLowerCase()),
   });
 
-  if (!user) {
-    throw new UnauthorizedError('Invalid email or password');
-  }
+  const passwordHash = user?.passwordHash ?? (await getDummyPasswordHash());
+  const valid = await bcrypt.compare(input.password, passwordHash);
 
-  const valid = await bcrypt.compare(input.password, user.passwordHash);
-
-  if (!valid) {
+  if (!user || !valid) {
     throw new UnauthorizedError('Invalid email or password');
   }
 
   return createTokens(user.id, user.email);
 }
 
-export async function refreshUserToken(refreshToken: string): Promise<AuthTokens> {
-  const tokenHash = hashToken(refreshToken);
+export async function refreshUserToken(rawRefreshToken: string): Promise<AuthTokens> {
+  const tokenHash = hashToken(rawRefreshToken);
   const now = new Date();
 
   const stored = await db.query.refreshTokens.findFirst({
-    where: and(
-      eq(refreshTokens.tokenHash, tokenHash),
-      isNull(refreshTokens.revokedAt),
-      gt(refreshTokens.expiresAt, now),
-    ),
-    with: {
-      user: true,
-    },
+    where: eq(refreshTokens.tokenHash, tokenHash),
+    with: { user: true },
   });
 
   if (!stored?.user) {
     throw new UnauthorizedError('Invalid or expired refresh token');
   }
 
-  await db
+  if (stored.revokedAt) {
+    await revokeAllRefreshTokens(stored.userId, now);
+    throw new UnauthorizedError('Session revoked. Please sign in again.', 'TOKEN_REUSE');
+  }
+
+  if (stored.expiresAt <= now) {
+    throw new UnauthorizedError('Invalid or expired refresh token');
+  }
+
+  const consumed = await db
     .update(refreshTokens)
     .set({ revokedAt: now })
-    .where(eq(refreshTokens.id, stored.id));
+    .where(
+      and(
+        eq(refreshTokens.id, stored.id),
+        isNull(refreshTokens.revokedAt),
+        gt(refreshTokens.expiresAt, now),
+      ),
+    )
+    .returning({ id: refreshTokens.id });
+
+  if (consumed.length === 0) {
+    await revokeAllRefreshTokens(stored.userId, now);
+    throw new UnauthorizedError('Session revoked. Please sign in again.', 'TOKEN_REUSE');
+  }
 
   return createTokens(stored.user.id, stored.user.email);
 }
 
-export async function logoutUser(refreshToken: string): Promise<void> {
-  const tokenHash = hashToken(refreshToken);
+export async function logoutUser(rawRefreshToken: string): Promise<void> {
+  const tokenHash = hashToken(rawRefreshToken);
 
   await db
     .update(refreshTokens)
@@ -128,23 +165,100 @@ export async function logoutUser(refreshToken: string): Promise<void> {
     .where(eq(refreshTokens.tokenHash, tokenHash));
 }
 
-export async function getUserById(userId: string) {
+export async function changePassword(
+  userId: string,
+  input: ChangePasswordInput,
+): Promise<{ message: string }> {
   const user = await db.query.users.findFirst({
     where: eq(users.id, userId),
-    columns: { id: true, email: true, createdAt: true },
   });
 
   if (!user) {
     throw new NotFoundError('User not found');
   }
 
-  return user;
+  const valid = await bcrypt.compare(input.currentPassword, user.passwordHash);
+
+  if (!valid) {
+    throw new UnauthorizedError('Current password is incorrect');
+  }
+
+  const passwordHash = await bcrypt.hash(input.newPassword, BCRYPT_ROUNDS);
+  const now = new Date();
+
+  await db.update(users).set({ passwordHash }).where(eq(users.id, userId));
+  await revokeAllRefreshTokens(userId, now);
+
+  return { message: 'Password updated successfully. Please sign in again.' };
+}
+
+export async function getUserById(userId: string) {
+  const user = await db.query.users.findFirst({
+    where: eq(users.id, userId),
+    columns: {
+      id: true,
+      email: true,
+      createdAt: true,
+      consentVersion: true,
+      consentedAt: true,
+    },
+  });
+
+  if (!user) {
+    throw new NotFoundError('User not found');
+  }
+
+  return {
+    ...user,
+    needsConsent: user.consentVersion !== CURRENT_CONSENT_VERSION,
+    currentConsentVersion: CURRENT_CONSENT_VERSION,
+  };
+}
+
+export async function recordUserConsent(userId: string, input: RecordConsentInput) {
+  if (input.version !== CURRENT_CONSENT_VERSION) {
+    throw new ValidationError('Consent version is outdated. Refresh the app and try again.');
+  }
+
+  const now = new Date();
+
+  await db
+    .update(users)
+    .set({
+      consentVersion: input.version,
+      consentedAt: now,
+    })
+    .where(eq(users.id, userId));
+
+  return {
+    consentVersion: input.version,
+    consentedAt: now,
+    needsConsent: false,
+    currentConsentVersion: CURRENT_CONSENT_VERSION,
+  };
+}
+
+export async function deleteUserAccount(userId: string): Promise<{ message: string }> {
+  const user = await db.query.users.findFirst({
+    where: eq(users.id, userId),
+  });
+
+  if (!user) {
+    throw new NotFoundError('User not found');
+  }
+
+  await deleteUserScanFolder(userId).catch(() => undefined);
+  await db.delete(users).where(eq(users.id, userId));
+
+  return { message: 'Account deleted successfully' };
 }
 
 const PASSWORD_RESET_ACK_MESSAGE =
-  'If an account exists with that email, a reset link has been sent.';
+  'If an account exists with that email, a reset code has been sent.';
 
-export async function requestPasswordReset(input: ForgotPasswordInput): Promise<{ message: string }> {
+export async function requestPasswordReset(
+  input: ForgotPasswordInput,
+): Promise<{ message: string }> {
   const email = input.email.toLowerCase();
   const user = await db.query.users.findFirst({
     where: eq(users.email, email),
@@ -167,8 +281,8 @@ export async function requestPasswordReset(input: ForgotPasswordInput): Promise<
       ),
     );
 
-  const rawToken = generatePasswordResetToken();
-  const tokenHash = hashToken(rawToken);
+  const code = generatePasswordResetCode();
+  const tokenHash = hashToken(code);
 
   await db.insert(passwordResetTokens).values({
     userId: user.id,
@@ -176,54 +290,46 @@ export async function requestPasswordReset(input: ForgotPasswordInput): Promise<
     expiresAt: getPasswordResetExpiry(),
   });
 
-  const resetUrl = buildPasswordResetUrl(rawToken);
-  await sendPasswordResetEmail(user.email, resetUrl);
+  await sendPasswordResetEmail(user.email, code);
 
   return { message: PASSWORD_RESET_ACK_MESSAGE };
 }
 
 export async function resetPassword(input: ResetPasswordInput): Promise<{ message: string }> {
-  const tokenHash = hashToken(input.token);
+  const email = input.email.toLowerCase();
   const now = new Date();
+
+  const user = await db.query.users.findFirst({
+    where: eq(users.email, email),
+  });
+
+  if (!user) {
+    throw new ValidationError('Invalid or expired reset code');
+  }
+
+  const tokenHash = hashToken(input.code);
 
   const stored = await db.query.passwordResetTokens.findFirst({
     where: and(
+      eq(passwordResetTokens.userId, user.id),
       eq(passwordResetTokens.tokenHash, tokenHash),
       isNull(passwordResetTokens.usedAt),
       gt(passwordResetTokens.expiresAt, now),
     ),
-    with: {
-      user: true,
-    },
   });
 
-  if (!stored?.user) {
-    throw new ValidationError('This reset link is invalid or has expired');
+  if (!stored) {
+    throw new ValidationError('Invalid or expired reset code');
   }
 
   const passwordHash = await bcrypt.hash(input.password, BCRYPT_ROUNDS);
 
-  await db.transaction(async (tx) => {
-    await tx
-      .update(users)
-      .set({ passwordHash })
-      .where(eq(users.id, stored.userId));
-
-    await tx
-      .update(passwordResetTokens)
-      .set({ usedAt: now })
-      .where(eq(passwordResetTokens.id, stored.id));
-
-    await tx
-      .update(refreshTokens)
-      .set({ revokedAt: now })
-      .where(
-        and(
-          eq(refreshTokens.userId, stored.userId),
-          isNull(refreshTokens.revokedAt),
-        ),
-      );
-  });
+  await db.update(users).set({ passwordHash }).where(eq(users.id, user.id));
+  await db
+    .update(passwordResetTokens)
+    .set({ usedAt: now })
+    .where(eq(passwordResetTokens.id, stored.id));
+  await revokeAllRefreshTokens(user.id, now);
 
   return { message: 'Password updated successfully' };
 }

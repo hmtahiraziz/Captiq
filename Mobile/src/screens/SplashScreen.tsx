@@ -15,8 +15,6 @@ import { colors, spacing } from '../theme/tokens';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
-const APP_VERSION = '2.4.0';
-
 function PulseRing({ delay, color }: { delay: number; color: string }) {
   const scale = useSharedValue(0.3);
   const opacity = useSharedValue(0.6);
@@ -130,9 +128,6 @@ export function SplashScreen() {
             <BoltIcon />
             <Text style={styles.poweredText}>Powered by Intelligence</Text>
           </Animated.View>
-          <Text style={styles.version}>
-            Version {APP_VERSION} • © 2024 Captiq Labs
-          </Text>
         </View>
       </SafeAreaView>
     </View>
@@ -196,9 +191,7 @@ const styles = StyleSheet.create({
     width: LOGO_SIZE,
     height: LOGO_SIZE,
     borderRadius: 40,
-    backgroundColor: 'rgba(255, 255, 255, 0.72)',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.4)',
+    backgroundColor: colors.surfaceContainerLowest,
     alignItems: 'center',
     justifyContent: 'center',
     overflow: 'hidden',
@@ -218,8 +211,7 @@ const styles = StyleSheet.create({
     right: 16,
     bottom: 16,
     borderRadius: 32,
-    borderWidth: 1,
-    borderColor: 'rgba(66, 44, 216, 0.05)',
+    backgroundColor: 'rgba(66, 44, 216, 0.04)',
   },
   wordmark: {
     alignItems: 'center',
@@ -254,20 +246,11 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.sm,
     borderRadius: 9999,
     backgroundColor: 'rgba(245, 242, 255, 0.6)',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.4)',
   },
   poweredText: {
     fontSize: 12,
     lineHeight: 16,
     fontWeight: '500',
     color: colors.onSurfaceVariant,
-  },
-  version: {
-    fontSize: 12,
-    lineHeight: 16,
-    fontWeight: '500',
-    color: colors.outline,
-    opacity: 0.5,
   },
 });

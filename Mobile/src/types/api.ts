@@ -17,6 +17,10 @@ export interface User {
   id: string;
   email: string;
   createdAt?: string;
+  consentVersion?: string | null;
+  consentedAt?: string | null;
+  needsConsent?: boolean;
+  currentConsentVersion?: string;
 }
 
 export interface AuthTokens {
@@ -50,4 +54,14 @@ export interface Message {
 export interface SendMessageResponse {
   userMessage: Message;
   assistantMessage: Message;
+}
+
+export interface QuotaUsage {
+  usageDate: string;
+  scansUsed: number;
+  scansLimit: number;
+  scansRemaining: number;
+  messagesUsed: number;
+  messagesLimit: number;
+  messagesRemaining: number;
 }

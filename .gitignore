@@ -28,3 +28,5 @@ uploads/
 tmp/
 temp/
 config.bat
+Backend/.env.example
+Backend/.env.example

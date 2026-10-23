@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useQueryClient } from '@tanstack/react-query';
 import Toast from 'react-native-toast-message';
+import { quotaKeys } from '../hooks/useQuota';
 import { scanKeys } from '../hooks/useScans';
 import type { ScanListResponse } from '../types/api';
 import { getApiErrorMessage } from '../services/api/client';
@@ -107,7 +108,10 @@ export function useAnalyzingViewModel(
           };
         });
 
-        await queryClient.invalidateQueries({ queryKey: scanKeys.list() });
+        await Promise.all([
+          queryClient.invalidateQueries({ queryKey: scanKeys.list() }),
+          queryClient.invalidateQueries({ queryKey: quotaKeys.all }),
+        ]);
 
         navigation.replace('ScanResult', {
           scanId: scan.id,

@@ -205,8 +205,6 @@ const styles = StyleSheet.create({
   },
   glassRim: {
     ...StyleSheet.absoluteFill,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.12)',
     borderRadius: 40,
   },
   brackets: {
@@ -285,8 +283,6 @@ const styles = StyleSheet.create({
     borderRadius: 36,
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: 'rgba(71, 165, 255, 0.35)',
   },
   hintTitle: {
     ...typography.labelLg,

@@ -1,29 +1,74 @@
-import { StyleSheet, Text, View } from 'react-native';
-import { splitAiParagraphs } from '../../lib/format/aiText';
-import { VisionMetricBars } from './VisionMetricBars';
-import { colors, spacing, typography } from '../../theme/tokens';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
+import Toast from 'react-native-toast-message';
+import { splitAiParagraphs, formatAiText } from '../../lib/format/aiText';
+import { copyText, shareText } from '../../lib/share/shareText';
+import { MaterialIcon } from '../profile/MaterialIcon';
+import { colors, radius, spacing, typography } from '../../theme/tokens';
 
 interface AiCaptionCardProps {
   caption: string;
-  model?: string | null;
 }
 
-export function AiCaptionCard({ caption, model }: AiCaptionCardProps) {
+export function AiCaptionCard({ caption }: AiCaptionCardProps) {
   const paragraphs = splitAiParagraphs(caption);
-  const modelLabel = model ?? 'GPT-4o mini';
+  const plain = formatAiText(caption);
+
+  const handleCopy = async () => {
+    if (!plain) {
+      return;
+    }
+
+    try {
+      const result = await copyText(plain);
+      Toast.show({
+        type: 'success',
+        text1: result === 'copied' ? 'Caption copied' : 'Share sheet opened',
+        text2: result === 'shared' ? 'Choose Copy to save the caption' : undefined,
+      });
+    } catch {
+      Toast.show({ type: 'error', text1: 'Could not copy caption' });
+    }
+  };
+
+  const handleShare = async () => {
+    if (!plain) {
+      return;
+    }
+
+    try {
+      await shareText(plain, 'Captiq caption');
+    } catch {
+      Toast.show({ type: 'error', text1: 'Could not share caption' });
+    }
+  };
 
   return (
-    <View style={styles.card}>
-      <View style={styles.headerBlock}>
-        <View style={styles.titleRow}>
-          <View style={styles.aiBadge}>
-            <Text style={styles.aiBadgeText}>AI</Text>
-          </View>
-          <Text style={styles.title}>Image description</Text>
+    <View style={styles.wrap}>
+      <View style={styles.titleRow}>
+        <View style={styles.aiBadge}>
+          <Text style={styles.aiBadgeText}>AI</Text>
         </View>
-        <Text style={styles.model} numberOfLines={2}>
-          Powered by {modelLabel}
-        </Text>
+        <Text style={styles.title}>Image description</Text>
+        {plain ? (
+          <View style={styles.actions}>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Copy caption"
+              hitSlop={8}
+              onPress={handleCopy}
+              style={({ pressed }) => [styles.actionBtn, pressed && styles.pressed]}>
+              <MaterialIcon name="content_copy" size={18} color={colors.primary} />
+            </Pressable>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Share caption"
+              hitSlop={8}
+              onPress={handleShare}
+              style={({ pressed }) => [styles.actionBtn, pressed && styles.pressed]}>
+              <MaterialIcon name="share" size={18} color={colors.primary} />
+            </Pressable>
+          </View>
+        ) : null}
       </View>
 
       <View style={styles.body}>
@@ -39,26 +84,13 @@ export function AiCaptionCard({ caption, model }: AiCaptionCardProps) {
           <Text style={styles.paragraph}>No caption available for this scan.</Text>
         )}
       </View>
-
-      {caption ? <VisionMetricBars caption={caption} /> : null}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  card: {
-    borderRadius: 32,
-    backgroundColor: '#FFFFFF',
-    borderWidth: 1,
-    borderColor: 'rgba(200, 196, 216, 0.35)',
-    padding: spacing.lg,
-    marginBottom: spacing.sm,
-    overflow: 'hidden',
-  },
-  headerBlock: {
-    gap: spacing.sm,
-    marginBottom: spacing.md,
-    backgroundColor: '#FFFFFF',
+  wrap: {
+    gap: spacing.md,
   },
   titleRow: {
     flexDirection: 'row',
@@ -67,7 +99,7 @@ const styles = StyleSheet.create({
   },
   aiBadge: {
     backgroundColor: colors.primary,
-    paddingHorizontal: 12,
+    paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 9999,
   },
@@ -80,17 +112,24 @@ const styles = StyleSheet.create({
   title: {
     ...typography.headlineSm,
     color: colors.primary,
+    fontWeight: '700',
     flex: 1,
   },
-  model: {
-    ...typography.labelMd,
-    color: colors.onSurfaceVariant,
-    opacity: 0.7,
+  actions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+  },
+  actionBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: radius.md,
+    backgroundColor: colors.primaryFixed,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   body: {
-    gap: spacing.md,
-    marginBottom: spacing.xs,
-    backgroundColor: '#FFFFFF',
+    gap: spacing.sm,
   },
   paragraph: {
     ...typography.bodyMd,
@@ -98,6 +137,9 @@ const styles = StyleSheet.create({
     lineHeight: 24,
   },
   paragraphSpacing: {
-    marginTop: spacing.md,
+    marginTop: spacing.sm,
+  },
+  pressed: {
+    opacity: 0.85,
   },
 });

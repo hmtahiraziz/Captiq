@@ -1,6 +1,5 @@
 import {
   ActivityIndicator,
-  Platform,
   Pressable,
   StyleSheet,
   Text,
@@ -93,14 +92,6 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.md,
     paddingHorizontal: spacing.lg,
     marginTop: spacing.xs,
-    ...(Platform.OS === 'android'
-      ? { elevation: 2 }
-      : {
-          shadowColor: colors.primary,
-          shadowOffset: { width: 0, height: 6 },
-          shadowOpacity: 0.18,
-          shadowRadius: 10,
-        }),
   },
   content: {
     flexDirection: 'row',
@@ -120,13 +111,5 @@ const styles = StyleSheet.create({
   },
   success: {
     backgroundColor: colors.tertiaryContainer,
-    ...(Platform.OS === 'android'
-      ? { elevation: 2 }
-      : {
-          shadowColor: colors.tertiaryContainer,
-          shadowOffset: { width: 0, height: 6 },
-          shadowOpacity: 0.18,
-          shadowRadius: 10,
-        }),
   },
 });
