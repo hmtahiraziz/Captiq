@@ -1,4 +1,4 @@
-import { Linking, Pressable, StyleSheet, Switch, Text, View, ActivityIndicator } from 'react-native';
+import { Linking, Pressable, StyleSheet, Text, View, ActivityIndicator } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import Toast from 'react-native-toast-message';
@@ -7,50 +7,11 @@ import { SettingsSection } from '../../components/profile/SettingsSection';
 import { MaterialIcon } from '../../components/profile/MaterialIcon';
 import { useScanHistoryActions } from '../../hooks/useScanHistoryActions';
 import type { RootStackParamList } from '../../navigation/types';
-import { usePrivacyStore } from '../../stores/usePrivacyStore';
 import { colors, radius, spacing, typography } from '../../theme/tokens';
-
-function PrivacyToggleRow({
-  label,
-  description,
-  value,
-  onValueChange,
-  showDivider = true,
-}: {
-  label: string;
-  description: string;
-  value: boolean;
-  onValueChange: (next: boolean) => void;
-  showDivider?: boolean;
-}) {
-  return (
-    <>
-      <View style={styles.toggleRow}>
-        <View style={styles.toggleCopy}>
-          <Text style={styles.toggleLabel}>{label}</Text>
-          <Text style={styles.toggleDescription}>{description}</Text>
-        </View>
-        <Switch
-          value={value}
-          onValueChange={onValueChange}
-          trackColor={{ false: colors.outlineVariant, true: colors.primaryContainer }}
-          thumbColor={value ? colors.primary : colors.surfaceContainerLowest}
-        />
-      </View>
-      {showDivider ? <View style={styles.divider} /> : null}
-    </>
-  );
-}
 
 export function PrivacySettingsScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const { totalCount, isClearingAll, requestClearAllScans } = useScanHistoryActions();
-
-  const saveScanHistory = usePrivacyStore((s) => s.saveScanHistory);
-  const analyticsEnabled = usePrivacyStore((s) => s.analyticsEnabled);
-  const setSaveScanHistory = usePrivacyStore((s) => s.setSaveScanHistory);
-  const setAnalyticsEnabled = usePrivacyStore((s) => s.setAnalyticsEnabled);
-
   const scanCount = totalCount;
 
   const openSystemSettings = () => {
@@ -62,24 +23,9 @@ export function PrivacySettingsScreen() {
   return (
     <SettingsScreenLayout title="Privacy" onBack={() => navigation.goBack()}>
       <Text style={styles.intro}>
-        Control how Captiq stores your data and uses device permissions.
+        Captiq stores scans on your account, hosts images on Cloudinary, and processes them with
+        OpenAI. You can clear history or delete your account at any time.
       </Text>
-
-      <SettingsSection title="Your data">
-        <PrivacyToggleRow
-          label="Save scan history"
-          description="Keep past scans in your History tab on this device account"
-          value={saveScanHistory}
-          onValueChange={setSaveScanHistory}
-        />
-        <PrivacyToggleRow
-          label="Product analytics"
-          description="Help improve Captiq with anonymous usage insights"
-          value={analyticsEnabled}
-          onValueChange={setAnalyticsEnabled}
-          showDivider={false}
-        />
-      </SettingsSection>
 
       <SettingsSection title="History">
         <Pressable
@@ -120,7 +66,7 @@ export function PrivacySettingsScreen() {
           <View style={styles.actionCopy}>
             <Text style={styles.actionLabel}>Device permissions</Text>
             <Text style={styles.actionDescription}>
-              Manage camera and notification access in system settings
+              Manage camera and photo library access in system settings
             </Text>
           </View>
           <MaterialIcon name="chevron_right" size={22} color={colors.outlineVariant} />
@@ -128,23 +74,47 @@ export function PrivacySettingsScreen() {
       </SettingsSection>
 
       <SettingsSection title="Legal">
-        <View style={styles.legalBlock}>
-          <View style={styles.legalRow}>
-            <MaterialIcon name="policy" size={20} color={colors.primary} />
-            <Text style={styles.legalText}>
-              Images you scan are processed by AI to generate descriptions. Scan data is
-              associated with your account and stored according to our retention policy.
-            </Text>
+        <Pressable
+          accessibilityRole="button"
+          onPress={() => navigation.navigate('LegalDocument', { document: 'privacy' })}
+          style={({ pressed }) => [styles.actionRow, pressed && styles.actionRowPressed]}>
+          <View style={styles.actionIconBox}>
+            <MaterialIcon name="policy" size={22} color={colors.primary} />
           </View>
-          <View style={styles.legalDivider} />
-          <View style={styles.legalRow}>
-            <MaterialIcon name="gavel" size={20} color={colors.primary} />
-            <Text style={styles.legalText}>
-              By using Captiq you agree to responsible use of AI-generated content. Do not
-              scan sensitive personal documents unless you accept the associated risks.
-            </Text>
+          <View style={styles.actionCopy}>
+            <Text style={styles.actionLabel}>Privacy policy</Text>
+            <Text style={styles.actionDescription}>How Captiq handles your data</Text>
           </View>
-        </View>
+          <MaterialIcon name="chevron_right" size={22} color={colors.outlineVariant} />
+        </Pressable>
+        <View style={styles.divider} />
+        <Pressable
+          accessibilityRole="button"
+          onPress={() => navigation.navigate('LegalDocument', { document: 'terms' })}
+          style={({ pressed }) => [styles.actionRow, pressed && styles.actionRowPressed]}>
+          <View style={styles.actionIconBox}>
+            <MaterialIcon name="gavel" size={22} color={colors.primary} />
+          </View>
+          <View style={styles.actionCopy}>
+            <Text style={styles.actionLabel}>Terms of use</Text>
+            <Text style={styles.actionDescription}>Rules for using Captiq AI</Text>
+          </View>
+          <MaterialIcon name="chevron_right" size={22} color={colors.outlineVariant} />
+        </Pressable>
+        <View style={styles.divider} />
+        <Pressable
+          accessibilityRole="button"
+          onPress={() => navigation.navigate('LegalDocument', { document: 'accountDeletion' })}
+          style={({ pressed }) => [styles.actionRow, pressed && styles.actionRowPressed]}>
+          <View style={styles.actionIconBox}>
+            <MaterialIcon name="delete" size={22} color={colors.primary} />
+          </View>
+          <View style={styles.actionCopy}>
+            <Text style={styles.actionLabel}>Account deletion help</Text>
+            <Text style={styles.actionDescription}>How to permanently remove your account</Text>
+          </View>
+          <MaterialIcon name="chevron_right" size={22} color={colors.outlineVariant} />
+        </Pressable>
       </SettingsSection>
     </SettingsScreenLayout>
   );
@@ -156,31 +126,8 @@ const styles = StyleSheet.create({
     color: colors.onSurfaceVariant,
     marginBottom: spacing.xs,
   },
-  toggleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.md,
-    paddingVertical: spacing.lg,
-    paddingHorizontal: spacing.lg,
-  },
-  toggleCopy: {
-    flex: 1,
-    gap: 2,
-  },
-  toggleLabel: {
-    ...typography.labelLg,
-    color: colors.onSurface,
-  },
-  toggleDescription: {
-    ...typography.labelMd,
-    color: colors.onSurfaceVariant,
-  },
   divider: {
-    marginHorizontal: spacing.lg,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: colors.outlineVariant,
-    borderStyle: 'dashed',
-    opacity: 0.5,
+    height: spacing.xs,
   },
   actionRow: {
     flexDirection: 'row',
@@ -214,25 +161,5 @@ const styles = StyleSheet.create({
   actionDescription: {
     ...typography.labelMd,
     color: colors.onSurfaceVariant,
-  },
-  legalBlock: {
-    padding: spacing.lg,
-    gap: spacing.md,
-  },
-  legalRow: {
-    flexDirection: 'row',
-    gap: spacing.sm,
-    alignItems: 'flex-start',
-  },
-  legalText: {
-    flex: 1,
-    ...typography.labelMd,
-    color: colors.onSurfaceVariant,
-    lineHeight: 18,
-  },
-  legalDivider: {
-    height: StyleSheet.hairlineWidth,
-    backgroundColor: colors.outlineVariant,
-    opacity: 0.4,
   },
 });

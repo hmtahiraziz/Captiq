@@ -1,11 +1,10 @@
 import { Platform } from 'react-native';
+import { releaseApiHost } from './releaseHost';
 
 const API_PORT = 3001;
 
 /** Override for physical device on Wi‑Fi (e.g. `http://192.168.1.42`). Leave empty to auto-detect. */
-const ANDROID_PHYSICAL_HOST = '';
-
-const PROD_HOST = 'https://your-api.example.com';
+const ANDROID_PHYSICAL_HOST: string = '';
 
 function isAndroidEmulator(): boolean {
   if (Platform.OS !== 'android') {
@@ -30,7 +29,7 @@ function isAndroidEmulator(): boolean {
 function getDevHost(): string {
   if (Platform.OS === 'android') {
     if (ANDROID_PHYSICAL_HOST) {
-      return (ANDROID_PHYSICAL_HOST as string)?.replace(/\/$/, '') ?? '';
+      return ANDROID_PHYSICAL_HOST.replace(/\/$/, '');
     }
 
     // Emulator: 10.0.2.2 → host machine localhost
@@ -43,6 +42,22 @@ function getDevHost(): string {
   return `http://localhost:${API_PORT}`;
 }
 
-const host = (__DEV__ ? getDevHost() : PROD_HOST).replace(/\/$/, '');
+function getProdHost(): string {
+  const host = releaseApiHost.trim().replace(/\/$/, '');
+
+  if (!host || host.includes('example.com') || host.includes('your-api')) {
+    throw new Error(
+      'Production API host is not configured. Set releaseApiHost in src/config/releaseHost.ts',
+    );
+  }
+
+  if (!host.startsWith('https://')) {
+    throw new Error('Production API host must use https://');
+  }
+
+  return host;
+}
+
+const host = (__DEV__ ? getDevHost() : getProdHost()).replace(/\/$/, '');
 
 export const API_BASE_URL = `${host}/api`;

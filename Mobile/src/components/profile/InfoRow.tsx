@@ -55,10 +55,6 @@ const styles = StyleSheet.create({
     color: colors.onSurface,
   },
   divider: {
-    marginHorizontal: spacing.lg,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: colors.outlineVariant,
-    borderStyle: 'dashed',
-    opacity: 0.5,
+    height: spacing.xs,
   },
 });

@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
-import { colors, glass, spacing, typography } from '../../theme/tokens';
+import { colors, spacing, typography } from '../../theme/tokens';
 
 interface ScreenTopBarProps {
   title: string;
@@ -23,15 +23,15 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    width: '100%',
     paddingHorizontal: spacing.marginMobile,
-    height: 56,
-    backgroundColor: glass.cardBackground,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: 'rgba(255, 255, 255, 0.35)',
+    paddingTop: spacing.sm,
+    paddingBottom: spacing.md,
+    minHeight: 60,
   },
   title: {
-    ...typography.headlineMd,
-    color: colors.onSurface,
+    ...typography.headlineSm,
+    color: colors.primary,
     fontWeight: '700',
     flex: 1,
   },

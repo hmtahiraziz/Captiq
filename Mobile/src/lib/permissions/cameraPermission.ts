@@ -1,4 +1,5 @@
-import { Alert, Linking, PermissionsAndroid, Platform } from 'react-native';
+import { Linking, PermissionsAndroid, Platform } from 'react-native';
+import { appConfirm } from '../dialog/appDialog';
 import { waitForUiReady } from './waitForUiReady';
 
 const CAMERA_PERMISSION = PermissionsAndroid.PERMISSIONS.CAMERA;
@@ -33,13 +34,16 @@ export async function ensureCameraPermission(): Promise<boolean> {
   }
 }
 
-export function showCameraPermissionDeniedAlert(): void {
-  Alert.alert(
-    'Camera permission required',
-    'Captiq needs camera access to take photos. Enable it in your device Settings.',
-    [
-      { text: 'Not now', style: 'cancel' },
-      { text: 'Open Settings', onPress: () => Linking.openSettings() },
-    ],
-  );
+export async function showCameraPermissionDeniedAlert(): Promise<void> {
+  const openSettings = await appConfirm({
+    title: 'Camera permission required',
+    message:
+      'Captiq needs camera access to take photos. Enable it in your device Settings.',
+    confirmLabel: 'Open Settings',
+    cancelLabel: 'Not now',
+  });
+
+  if (openSettings) {
+    Linking.openSettings().catch(() => undefined);
+  }
 }

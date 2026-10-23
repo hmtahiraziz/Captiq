@@ -1,12 +1,18 @@
 import { Router } from 'express';
 import { authenticate, type AuthenticatedRequest } from '../middleware/auth.middleware.js';
 import { uploadSingleImage } from '../middleware/upload.middleware.js';
-import { validateBody, validateQuery } from '../middleware/validate.middleware.js';
+import {
+  validateBody,
+  validateParams,
+  validateQuery,
+} from '../middleware/validate.middleware.js';
 import {
   createMessageSchema,
   listScansQuerySchema,
+  scanIdParamsSchema,
   type CreateMessageInput,
   type ListScansQuery,
+  type ScanIdParams,
 } from '../schemas/scan.schema.js';
 import {
   createScan,
@@ -18,7 +24,6 @@ import {
 } from '../services/scan.service.js';
 import { asyncHandler } from '../utils/async-handler.js';
 import { ValidationError } from '../utils/errors.js';
-import { getParam } from '../utils/params.js';
 import type { Request, Response, NextFunction } from 'express';
 
 const router = Router();
@@ -63,38 +68,46 @@ router.get(
 
 router.get(
   '/:id',
+  validateParams(scanIdParamsSchema),
   asyncHandler(async (req, res) => {
     const { user } = req as AuthenticatedRequest;
-    const scan = await getScanById(user.id, getParam(req.params.id));
+    const { id } = res.locals.validatedParams as ScanIdParams;
+    const scan = await getScanById(user.id, id);
     res.json({ success: true, data: scan });
   }),
 );
 
 router.delete(
   '/:id',
+  validateParams(scanIdParamsSchema),
   asyncHandler(async (req, res) => {
     const { user } = req as AuthenticatedRequest;
-    await deleteScan(user.id, getParam(req.params.id));
+    const { id } = res.locals.validatedParams as ScanIdParams;
+    await deleteScan(user.id, id);
     res.json({ success: true, data: { message: 'Scan deleted' } });
   }),
 );
 
 router.get(
   '/:id/messages',
+  validateParams(scanIdParamsSchema),
   asyncHandler(async (req, res) => {
     const { user } = req as AuthenticatedRequest;
-    const thread = await getScanMessages(user.id, getParam(req.params.id));
+    const { id } = res.locals.validatedParams as ScanIdParams;
+    const thread = await getScanMessages(user.id, id);
     res.json({ success: true, data: thread });
   }),
 );
 
 router.post(
   '/:id/messages',
+  validateParams(scanIdParamsSchema),
   validateBody(createMessageSchema),
   asyncHandler(async (req, res) => {
     const { user } = req as AuthenticatedRequest;
+    const { id } = res.locals.validatedParams as ScanIdParams;
     const body = res.locals.validatedBody as CreateMessageInput;
-    const message = await sendScanMessage(user.id, getParam(req.params.id), body.content);
+    const message = await sendScanMessage(user.id, id, body.content);
     res.status(201).json({ success: true, data: message });
   }),
 );

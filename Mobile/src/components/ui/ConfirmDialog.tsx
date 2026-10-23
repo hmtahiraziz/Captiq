@@ -8,6 +8,8 @@ import {
 } from 'react-native';
 import { colors, radius, spacing, typography } from '../../theme/tokens';
 
+export type ConfirmDialogVariant = 'confirm' | 'alert';
+
 interface ConfirmDialogProps {
   visible: boolean;
   title: string;
@@ -17,6 +19,7 @@ interface ConfirmDialogProps {
   cancelLabel?: string;
   destructive?: boolean;
   loading?: boolean;
+  variant?: ConfirmDialogVariant;
   onConfirm: () => void;
   onCancel: () => void;
 }
@@ -30,45 +33,50 @@ export function ConfirmDialog({
   cancelLabel = 'Cancel',
   destructive = false,
   loading = false,
+  variant = 'confirm',
   onConfirm,
   onCancel,
 }: ConfirmDialogProps) {
+  const isAlert = variant === 'alert';
+
   return (
     <Modal
       visible={visible}
       transparent
       animationType="fade"
       statusBarTranslucent
-      onRequestClose={onCancel}>
+      onRequestClose={isAlert ? onConfirm : onCancel}>
       <Pressable
         accessibilityRole="button"
         accessibilityLabel="Dismiss dialog"
         style={styles.backdrop}
-        onPress={loading ? undefined : onCancel}>
+        onPress={loading ? undefined : isAlert ? onConfirm : onCancel}>
         <Pressable style={styles.card} onPress={(event) => event.stopPropagation()}>
           <Text style={styles.title}>{title}</Text>
           <Text style={styles.message}>{message}</Text>
 
           {detail ? (
             <View style={styles.detailBox}>
-              <Text style={styles.detailText} numberOfLines={3}>
+              <Text style={styles.detailText} numberOfLines={6}>
                 {detail}
               </Text>
             </View>
           ) : null}
 
           <View style={styles.actions}>
-            <Pressable
-              accessibilityRole="button"
-              disabled={loading}
-              onPress={onCancel}
-              style={({ pressed }) => [
-                styles.cancelButton,
-                pressed && styles.buttonPressed,
-                loading && styles.buttonDisabled,
-              ]}>
-              <Text style={styles.cancelLabel}>{cancelLabel}</Text>
-            </Pressable>
+            {!isAlert ? (
+              <Pressable
+                accessibilityRole="button"
+                disabled={loading}
+                onPress={onCancel}
+                style={({ pressed }) => [
+                  styles.cancelButton,
+                  pressed && styles.buttonPressed,
+                  loading && styles.buttonDisabled,
+                ]}>
+                <Text style={styles.cancelLabel}>{cancelLabel}</Text>
+              </Pressable>
+            ) : null}
 
             <Pressable
               accessibilityRole="button"
@@ -76,6 +84,7 @@ export function ConfirmDialog({
               onPress={onConfirm}
               style={({ pressed }) => [
                 styles.confirmButton,
+                isAlert && styles.confirmButtonAlone,
                 destructive && styles.confirmButtonDestructive,
                 pressed && styles.buttonPressed,
                 loading && styles.buttonDisabled,
@@ -105,7 +114,7 @@ export function ConfirmDialog({
 const styles = StyleSheet.create({
   backdrop: {
     flex: 1,
-    backgroundColor: 'rgba(27, 27, 38, 0.32)',
+    backgroundColor: 'rgba(27, 27, 38, 0.4)',
     alignItems: 'center',
     justifyContent: 'center',
     padding: spacing.marginMobile,
@@ -115,14 +124,12 @@ const styles = StyleSheet.create({
     maxWidth: 340,
     backgroundColor: colors.surfaceContainerLowest,
     borderRadius: radius.xl,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: colors.outlineVariant,
     padding: spacing.lg,
     gap: spacing.sm,
   },
   title: {
     ...typography.headlineSm,
-    color: colors.onSurface,
+    color: colors.primary,
     textAlign: 'center',
   },
   message: {
@@ -149,23 +156,24 @@ const styles = StyleSheet.create({
   },
   cancelButton: {
     flex: 1,
-    minHeight: 44,
+    minHeight: 48,
     alignItems: 'center',
     justifyContent: 'center',
     borderRadius: radius.pill,
-    borderWidth: 1,
-    borderColor: colors.outlineVariant,
-    backgroundColor: colors.surfaceContainerLowest,
+    backgroundColor: colors.surfaceContainerHigh,
     paddingHorizontal: spacing.md,
   },
   confirmButton: {
     flex: 1,
-    minHeight: 44,
+    minHeight: 48,
     alignItems: 'center',
     justifyContent: 'center',
     borderRadius: radius.pill,
     backgroundColor: colors.primary,
     paddingHorizontal: spacing.md,
+  },
+  confirmButtonAlone: {
+    flex: 1,
   },
   confirmButtonDestructive: {
     backgroundColor: colors.error,
