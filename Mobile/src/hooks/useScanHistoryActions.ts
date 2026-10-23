@@ -2,7 +2,6 @@ import { useCallback, useState } from 'react';
 import { showAppToast } from '../lib/toast/showAppToast';
 import { useConfirmDialog } from '../providers/ConfirmDialogProvider';
 import { formatAiText } from '../lib/format/aiText';
-import { formatModelLabel } from '../lib/format/model';
 import { scanKeys, useDeleteScan, useScans } from './useScans';
 import { getApiErrorMessage } from '../services/api/client';
 import * as scansService from '../services/scans.service';
@@ -37,7 +36,7 @@ export function useScanHistoryActions() {
       const confirmed = await confirm({
         title: 'Delete scan?',
         message: 'This scan will be permanently removed from your history.',
-        detail: `${buildScanPreview(scan.caption)}\n\nModel: ${formatModelLabel(scan.model)}`,
+        detail: buildScanPreview(scan.caption),
         confirmLabel: 'Delete',
         cancelLabel: 'Keep scan',
         destructive: true,
