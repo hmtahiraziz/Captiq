@@ -34,6 +34,22 @@ import type { RootStackParamList } from '../navigation/types';
 import * as authService from '../services/auth.service';
 import { colors, spacing, typography } from '../theme/tokens';
 
+<<<<<<< HEAD
+=======
+const schema = z
+  .object({
+    code: z.string().regex(/^\d{6}$/, 'Enter the 6-digit code from your email'),
+    password: z.string().min(8, 'Password must be at least 8 characters'),
+    confirmPassword: z.string().min(8, 'Confirm your password'),
+  })
+  .refine((values) => values.password === values.confirmPassword, {
+    message: 'Passwords do not match',
+    path: ['confirmPassword'],
+  });
+
+type ResetPasswordForm = z.infer<typeof schema>;
+
+>>>>>>> c87195a43bac9b793e933ef90ea71ba0cb2217de
 export function ResetPasswordScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const route = useRoute<RouteProp<RootStackParamList, 'ResetPassword'>>();
@@ -45,8 +61,13 @@ export function ResetPasswordScreen() {
   const [passwordVisible, setPasswordVisible] = useState(false);
   const [confirmVisible, setConfirmVisible] = useState(false);
 
+<<<<<<< HEAD
   const form = useForm<ResetPasswordFormValues>({
     resolver: zodResolver(resetPasswordSchema),
+=======
+  const form = useForm<ResetPasswordForm>({
+    resolver: zodResolver(schema),
+>>>>>>> c87195a43bac9b793e933ef90ea71ba0cb2217de
     defaultValues: { code: '', password: '', confirmPassword: '' },
   });
 
@@ -137,11 +158,17 @@ export function ResetPasswordScreen() {
                 render={({ field: { onChange, onBlur, value } }) => (
                   <GlassInput
                     label="New password"
+<<<<<<< HEAD
                     placeholder="At least 8 characters"
                     secureTextEntry={!passwordVisible}
                     autoComplete="new-password"
                     textContentType="newPassword"
                     maxLength={PASSWORD_MAX_LENGTH}
+=======
+                    placeholder="••••••••"
+                    secureTextEntry={!passwordVisible}
+                    autoComplete="new-password"
+>>>>>>> c87195a43bac9b793e933ef90ea71ba0cb2217de
                     editable={!completed && !submitting}
                     onBlur={onBlur}
                     onChangeText={onChange}
@@ -163,11 +190,17 @@ export function ResetPasswordScreen() {
                 render={({ field: { onChange, onBlur, value } }) => (
                   <GlassInput
                     label="Confirm password"
+<<<<<<< HEAD
                     placeholder="Re-enter your password"
                     secureTextEntry={!confirmVisible}
                     autoComplete="new-password"
                     textContentType="newPassword"
                     maxLength={PASSWORD_MAX_LENGTH}
+=======
+                    placeholder="••••••••"
+                    secureTextEntry={!confirmVisible}
+                    autoComplete="new-password"
+>>>>>>> c87195a43bac9b793e933ef90ea71ba0cb2217de
                     editable={!completed && !submitting}
                     onBlur={onBlur}
                     onChangeText={onChange}

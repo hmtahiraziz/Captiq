@@ -23,6 +23,7 @@ import {
   PasswordVisibilityToggle,
 } from '../components/auth/GlassInput';
 import { MaterialIcon } from '../components/profile/MaterialIcon';
+<<<<<<< HEAD
 import {
   PASSWORD_MAX_LENGTH,
   loginSchema,
@@ -33,6 +34,24 @@ import {
 import { getApiErrorMessage, useAuthStore } from '../stores/useAuthStore';
 import type { RootStackParamList } from '../navigation/types';
 import { colors, radius, spacing, typography } from '../theme/tokens';
+=======
+import { getApiErrorMessage, useAuthStore } from '../stores/useAuthStore';
+import type { RootStackParamList } from '../navigation/types';
+import { colors, radius, spacing, typography } from '../theme/tokens';
+
+const loginSchema = z.object({
+  email: z.string().email('Enter a valid email'),
+  password: z.string().min(1, 'Password is required'),
+});
+
+const registerSchema = z.object({
+  email: z.string().email('Enter a valid email'),
+  password: z.string().min(8, 'Password must be at least 8 characters'),
+});
+
+type LoginForm = z.infer<typeof loginSchema>;
+type RegisterForm = z.infer<typeof registerSchema>;
+>>>>>>> c87195a43bac9b793e933ef90ea71ba0cb2217de
 
 const LOGIN_COPY = {
   headline: 'Welcome back',
@@ -64,7 +83,11 @@ export function AuthScreen() {
 
   const registerForm = useForm<RegisterFormValues>({
     resolver: zodResolver(registerSchema),
+<<<<<<< HEAD
     defaultValues: { email: '', password: '', confirmPassword: '' },
+=======
+    defaultValues: { email: '', password: '' },
+>>>>>>> c87195a43bac9b793e933ef90ea71ba0cb2217de
   });
 
   const isLogin = mode === 'login';
@@ -102,7 +125,10 @@ export function AuthScreen() {
       return;
     }
     setPasswordVisible(false);
+<<<<<<< HEAD
     setConfirmVisible(false);
+=======
+>>>>>>> c87195a43bac9b793e933ef90ea71ba0cb2217de
     if (next === 'register') {
       loginForm.reset();
     } else {
@@ -187,8 +213,11 @@ export function AuthScreen() {
                       placeholder="••••••••"
                       secureTextEntry={!passwordVisible}
                       autoComplete="password"
+<<<<<<< HEAD
                       textContentType="password"
                       maxLength={PASSWORD_MAX_LENGTH}
+=======
+>>>>>>> c87195a43bac9b793e933ef90ea71ba0cb2217de
                       onBlur={onBlur}
                       onChangeText={onChange}
                       value={value}
@@ -244,8 +273,11 @@ export function AuthScreen() {
                       placeholder="At least 8 characters"
                       secureTextEntry={!passwordVisible}
                       autoComplete="new-password"
+<<<<<<< HEAD
                       textContentType="newPassword"
                       maxLength={PASSWORD_MAX_LENGTH}
+=======
+>>>>>>> c87195a43bac9b793e933ef90ea71ba0cb2217de
                       onBlur={onBlur}
                       onChangeText={onChange}
                       value={value}
@@ -259,6 +291,7 @@ export function AuthScreen() {
                     />
                   )}
                 />
+<<<<<<< HEAD
                 <Controller
                   control={registerForm.control}
                   name="confirmPassword"
@@ -283,6 +316,8 @@ export function AuthScreen() {
                     />
                   )}
                 />
+=======
+>>>>>>> c87195a43bac9b793e933ef90ea71ba0cb2217de
                 <AuthPrimaryButton
                   label={copy.cta}
                   loading={submitting}

@@ -28,6 +28,15 @@ import { getApiErrorMessage } from '../stores/useAuthStore';
 import type { RootStackParamList } from '../navigation/types';
 import * as authService from '../services/auth.service';
 import { colors, radius, spacing, typography } from '../theme/tokens';
+<<<<<<< HEAD
+=======
+
+const schema = z.object({
+  email: z.string().email('Enter a valid email'),
+});
+
+type ForgotPasswordForm = z.infer<typeof schema>;
+>>>>>>> c87195a43bac9b793e933ef90ea71ba0cb2217de
 
 export function ForgotPasswordScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();

@@ -11,7 +11,10 @@ import { ScanResultScreen } from '../screens/ScanResultScreen';
 import { SplashScreen } from '../screens/SplashScreen';
 import { AccountSettingsScreen } from '../screens/settings/AccountSettingsScreen';
 import { AboutCaptiqScreen } from '../screens/settings/AboutCaptiqScreen';
+<<<<<<< HEAD
 import { ChangePasswordScreen } from '../screens/settings/ChangePasswordScreen';
+=======
+>>>>>>> c87195a43bac9b793e933ef90ea71ba0cb2217de
 import { LegalDocumentScreen } from '../screens/settings/LegalDocumentScreen';
 import { PrivacySettingsScreen } from '../screens/settings/PrivacySettingsScreen';
 import { useAuthStore } from '../stores/useAuthStore';

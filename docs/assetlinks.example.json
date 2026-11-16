@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 [
   {
     "relation": ["delegate_permission/common.handle_all_urls"],
@@ -8,3 +9,15 @@
     }
   }
 ]
+=======
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "ai.captiq.app",
+      "sha256_cert_fingerprints": ["REPLACE_WITH_RELEASE_CERT_SHA256"]
+    }
+  }
+]
+>>>>>>> c87195a43bac9b793e933ef90ea71ba0cb2217de

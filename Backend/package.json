@@ -5,9 +5,15 @@
   "private": true,
   "main": "dist/index.js",
   "scripts": {
+<<<<<<< HEAD
     "dev": "tsx watch src/index.ts",
     "build": "tsc",
     "start": "node dist/index.js",
+=======
+    "dev": "node init && tsx watch src/index.ts",
+    "build": "node init && tsc",
+    "start": "node init && node dist/index.js",
+>>>>>>> c87195a43bac9b793e933ef90ea71ba0cb2217de
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
     "db:studio": "drizzle-kit studio",
