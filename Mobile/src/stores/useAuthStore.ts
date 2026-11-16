@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import * as authService from '../services/auth.service';
 import { onAuthSessionInvalidated } from '../lib/auth/authSessionEvents';
+import { getKeepSignedIn, setKeepSignedIn } from '../lib/auth/sessionPrefs';
 import { clearLocalUserData } from '../lib/storage/scanCache';
 import { clearTokens, getTokens, saveTokens } from '../lib/storage/tokenStorage';
 import { getApiErrorMessage } from '../services/api/client';
@@ -11,8 +12,8 @@ interface AuthState {
   isAuthenticated: boolean;
   isBootstrapping: boolean;
   bootstrap: () => Promise<void>;
-  login: (email: string, password: string) => Promise<void>;
-  register: (email: string, password: string) => Promise<void>;
+  login: (email: string, password: string, keepSignedIn?: boolean) => Promise<void>;
+  register: (email: string, password: string, keepSignedIn?: boolean) => Promise<void>;
   logout: () => Promise<void>;
   invalidateSession: () => Promise<void>;
   refreshProfile: () => Promise<void>;
@@ -27,9 +28,13 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
   bootstrap: async () => {
     try {
+      const keepSignedIn = await getKeepSignedIn();
       const tokens = await getTokens();
 
-      if (!tokens) {
+      if (!keepSignedIn || !tokens) {
+        if (!keepSignedIn && tokens) {
+          await clearTokens();
+        }
         set({ user: null, isAuthenticated: false, isBootstrapping: false });
         return;
       }
@@ -42,8 +47,9 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     }
   },
 
-  login: async (email, password) => {
+  login: async (email, password, keepSignedIn = true) => {
     const tokens = await authService.login(email, password);
+    await setKeepSignedIn(keepSignedIn);
     await saveTokens({
       accessToken: tokens.accessToken,
       refreshToken: tokens.refreshToken,
@@ -52,8 +58,9 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     set({ user, isAuthenticated: true });
   },
 
-  register: async (email, password) => {
+  register: async (email, password, keepSignedIn = true) => {
     const tokens = await authService.register(email, password);
+    await setKeepSignedIn(keepSignedIn);
     await saveTokens({
       accessToken: tokens.accessToken,
       refreshToken: tokens.refreshToken,

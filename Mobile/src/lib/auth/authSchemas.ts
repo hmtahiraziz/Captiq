@@ -45,6 +45,9 @@ export const registerSchema = withMatchingPasswords({
   email: emailSchema,
   password: passwordSchema,
   confirmPassword: z.string().min(1, 'Confirm your password'),
+  acceptedTerms: z.boolean().refine((value) => value === true, {
+    message: 'Please agree to the Privacy Policy and Terms of Use',
+  }),
 });
 
 export const forgotPasswordSchema = z.object({

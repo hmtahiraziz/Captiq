@@ -87,11 +87,7 @@ export function ProfileScreen() {
               icon="manage_accounts"
               iconTone="primary"
               label="Account"
-<<<<<<< HEAD
               description="Email, password, and account deletion"
-=======
-              description="Email and account deletion"
->>>>>>> c87195a43bac9b793e933ef90ea71ba0cb2217de
               onPress={() => navigation.navigate('AccountSettings')}
             />
             <SettingsRow

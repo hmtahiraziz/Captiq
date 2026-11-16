@@ -1,25 +1,16 @@
 import { useState } from 'react';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import {
-  Pressable,
-  StatusBar,
-  StyleSheet,
-  Text,
-  useWindowDimensions,
-  View,
-} from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import Animated, { FadeInDown } from 'react-native-reanimated';
 import Toast from 'react-native-toast-message';
-import { AuthBackground } from '../components/auth/AuthBackground';
 import { AuthLogoHeader } from '../components/auth/AuthLogoHeader';
 import { AuthPrimaryButton } from '../components/auth/AuthPrimaryButton';
-import { GlassCard } from '../components/auth/GlassCard';
-import { GlassInput } from '../components/auth/GlassInput';
-import { MaterialIcon } from '../components/profile/MaterialIcon';
+import { AuthScreenShell } from '../components/auth/AuthScreenShell';
+import { AuthTopBar } from '../components/auth/AuthTopBar';
+import { EmailLeadingIcon, GlassInput } from '../components/auth/GlassInput';
 import {
   forgotPasswordSchema,
   type ForgotPasswordFormValues,
@@ -27,21 +18,10 @@ import {
 import { getApiErrorMessage } from '../stores/useAuthStore';
 import type { RootStackParamList } from '../navigation/types';
 import * as authService from '../services/auth.service';
-import { colors, radius, spacing, typography } from '../theme/tokens';
-<<<<<<< HEAD
-=======
-
-const schema = z.object({
-  email: z.string().email('Enter a valid email'),
-});
-
-type ForgotPasswordForm = z.infer<typeof schema>;
->>>>>>> c87195a43bac9b793e933ef90ea71ba0cb2217de
+import { colors, spacing, typography } from '../theme/tokens';
 
 export function ForgotPasswordScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
-  const { width, height } = useWindowDimensions();
-  const isCompact = height < 780 || width < 360;
   const [submitting, setSubmitting] = useState(false);
   const [sent, setSent] = useState(false);
 
@@ -65,113 +45,86 @@ export function ForgotPasswordScreen() {
   });
 
   return (
-    <View style={styles.root}>
-      <StatusBar barStyle="dark-content" backgroundColor={colors.background} translucent={false} />
-      <AuthBackground />
+    <AuthScreenShell
+      topBar={
+        <AuthTopBar title="Forgot password" onBack={() => navigation.navigate('Auth')} />
+      }>
+      <Animated.View entering={FadeInDown.duration(260).springify().damping(18)}>
+        <AuthLogoHeader compact />
+      </Animated.View>
 
-      <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
-        <KeyboardAwareScrollView
-          style={styles.flex}
-          contentContainerStyle={[
-            styles.container,
-            isCompact && styles.containerCompact,
-          ]}
-          keyboardShouldPersistTaps="handled"
-          showsVerticalScrollIndicator={false}
-          bottomOffset={24}>
-          <AuthLogoHeader compact={isCompact} />
+      <View style={styles.stepCard}>
+        <View style={styles.stepRow}>
+          <View style={[styles.stepDot, styles.stepDotActive]} />
+          <View style={styles.stepLine} />
+          <View style={styles.stepDot} />
+        </View>
+        <Text style={styles.stepLabel}>Step 1 of 2 · Send reset code</Text>
+      </View>
 
-          <View style={styles.stepRow}>
-            <View style={[styles.stepDot, styles.stepDotActive]} />
-            <View style={styles.stepLine} />
-            <View style={styles.stepDot} />
-          </View>
-          <Text style={styles.stepLabel}>Step 1 of 2 · Send code</Text>
+      <View style={styles.form}>
+        <View style={styles.cardHeader}>
+          <Text style={styles.headline}>Reset your password</Text>
+          <Text style={styles.subtitle}>
+            Enter the email for your Captiq account and we&apos;ll send a 6-digit code.
+          </Text>
+        </View>
 
-          <GlassCard compact={isCompact}>
-            <View style={[styles.cardHeader, isCompact && styles.cardHeaderCompact]}>
-              <Text style={styles.headline}>Forgot password?</Text>
-              <Text style={styles.subtitle}>
-                Enter your email and we&apos;ll send a 6-digit reset code.
-              </Text>
-            </View>
+        <Controller
+          control={form.control}
+          name="email"
+          render={({ field: { onChange, onBlur, value } }) => (
+            <GlassInput
+              label="Email address"
+              placeholder="you@example.com"
+              autoCapitalize="none"
+              keyboardType="email-address"
+              autoComplete="email"
+              textContentType="emailAddress"
+              returnKeyType="done"
+              editable={!sent && !submitting}
+              leading={<EmailLeadingIcon />}
+              onBlur={onBlur}
+              onChangeText={onChange}
+              value={value}
+              onSubmitEditing={onSubmit}
+              error={form.formState.errors.email?.message}
+            />
+          )}
+        />
 
-            <View style={[styles.form, isCompact && styles.formCompact]}>
-              <Controller
-                control={form.control}
-                name="email"
-                render={({ field: { onChange, onBlur, value } }) => (
-                  <GlassInput
-                    label="Email address"
-                    placeholder="name@example.com"
-                    autoCapitalize="none"
-                    keyboardType="email-address"
-                    autoComplete="email"
-                    editable={!sent && !submitting}
-                    onBlur={onBlur}
-                    onChangeText={onChange}
-                    value={value}
-                    error={form.formState.errors.email?.message}
-                  />
-                )}
-              />
+        {sent ? (
+          <Text style={styles.successHint}>
+            Check your inbox for a 6-digit code. It expires in 15 minutes.
+          </Text>
+        ) : null}
 
-              {sent ? (
-                <Text style={styles.successHint}>
-                  Check your inbox for a 6-digit code. It expires in 15 minutes.
-                </Text>
-              ) : null}
+        <AuthPrimaryButton
+          label="Send code"
+          loading={submitting}
+          success={sent}
+          successLabel="Code sent"
+          showArrow={!sent}
+          disabled={sent}
+          onPress={onSubmit}
+        />
+      </View>
 
-              <AuthPrimaryButton
-                label="Send code"
-                loading={submitting}
-                success={sent}
-                successLabel="Code sent"
-                showArrow={!sent}
-                disabled={sent}
-                onPress={onSubmit}
-              />
-            </View>
-
-            <Pressable
-              accessibilityRole="button"
-              onPress={() => navigation.navigate('Auth')}
-              style={({ pressed }) => [styles.backLink, pressed && styles.pressed]}>
-              <MaterialIcon name="arrow_back" size={18} color={colors.primary} />
-              <Text style={styles.backLabel}>Back to sign in</Text>
-            </Pressable>
-          </GlassCard>
-        </KeyboardAwareScrollView>
-      </SafeAreaView>
-    </View>
+      <Pressable
+        accessibilityRole="button"
+        onPress={() => navigation.navigate('Auth')}
+        style={({ pressed }) => [styles.switchRow, pressed && styles.switchPressed]}>
+        <Text style={styles.switchPrompt}>Remembered it? </Text>
+        <Text style={styles.switchAction}>Back to sign in</Text>
+      </Pressable>
+    </AuthScreenShell>
   );
 }
 
 const styles = StyleSheet.create({
-  root: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
-  safe: {
-    flex: 1,
-    backgroundColor: 'transparent',
-  },
-  flex: {
-    flex: 1,
-  },
-  container: {
-    flexGrow: 1,
-    justifyContent: 'center',
-    paddingHorizontal: spacing.marginMobile,
-    paddingVertical: spacing.xl,
-    maxWidth: 448,
-    width: '100%',
-    alignSelf: 'center',
-    gap: spacing.md,
-  },
-  containerCompact: {
-    paddingVertical: spacing.md,
-    justifyContent: 'flex-start',
+  stepCard: {
+    alignItems: 'center',
+    gap: spacing.sm,
   },
   stepRow: {
     flexDirection: 'row',
@@ -201,48 +154,49 @@ const styles = StyleSheet.create({
     ...typography.labelMd,
     color: colors.onSurfaceVariant,
     textAlign: 'center',
-    marginBottom: spacing.sm,
+    fontWeight: '600',
   },
   cardHeader: {
-    marginBottom: spacing.xl,
-    gap: spacing.xs,
-  },
-  cardHeaderCompact: {
-    marginBottom: spacing.lg,
+    marginBottom: spacing.xs,
+    gap: spacing.sm,
   },
   headline: {
-    ...typography.headlineSm,
-    color: colors.primary,
-    fontWeight: '700',
+    ...typography.headlineLgMobile,
+    color: colors.onSurface,
+    fontWeight: '800',
+    letterSpacing: -0.4,
   },
   subtitle: {
     ...typography.bodyMd,
     color: colors.onSurfaceVariant,
+    lineHeight: 24,
   },
   form: {
     gap: spacing.lg,
-  },
-  formCompact: {
-    gap: spacing.md,
   },
   successHint: {
     ...typography.labelMd,
     color: colors.tertiary,
     textAlign: 'center',
   },
-  backLink: {
+  switchRow: {
     flexDirection: 'row',
-    alignItems: 'center',
     justifyContent: 'center',
-    gap: spacing.xs,
-    minHeight: 48,
-    marginTop: spacing.lg,
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    minHeight: 44,
+    paddingVertical: spacing.sm,
   },
-  backLabel: {
-    ...typography.labelLg,
+  switchPressed: {
+    opacity: 0.75,
+  },
+  switchPrompt: {
+    ...typography.bodyMd,
+    color: colors.onSurfaceVariant,
+  },
+  switchAction: {
+    ...typography.bodyMd,
     color: colors.primary,
-  },
-  pressed: {
-    opacity: 0.88,
+    fontWeight: '700',
   },
 });

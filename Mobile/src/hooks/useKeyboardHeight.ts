@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 import { useKeyboardState } from 'react-native-keyboard-controller';
 
 /**
@@ -9,15 +8,3 @@ import { useKeyboardState } from 'react-native-keyboard-controller';
 export function useKeyboardHeight() {
   return useKeyboardState((state) => state.height);
 }
-=======
-import { useKeyboardState } from 'react-native-keyboard-controller';
-
-/**
- * Reports keyboard height from react-native-keyboard-controller.
- * Prefer KeyboardStickyView / KeyboardAwareScrollView for layout;
- * use this when you only need height (e.g. scroll-to-end).
- */
-export function useKeyboardHeight() {
-  return useKeyboardState((state) => state.height);
-}
->>>>>>> c87195a43bac9b793e933ef90ea71ba0cb2217de

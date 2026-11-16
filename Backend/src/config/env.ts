@@ -6,6 +6,22 @@ const optionalNonEmpty = z.preprocess(
   z.string().min(1).optional(),
 );
 
+const booleanFromEnv = z.preprocess((value) => {
+  if (typeof value === 'boolean') {
+    return value;
+  }
+  if (typeof value === 'string') {
+    const normalized = value.trim().toLowerCase();
+    if (normalized === 'true' || normalized === '1') {
+      return true;
+    }
+    if (normalized === 'false' || normalized === '0' || normalized === '') {
+      return false;
+    }
+  }
+  return value;
+}, z.boolean());
+
 const envSchema = z
   .object({
     NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
@@ -19,7 +35,12 @@ const envSchema = z
     CLOUDINARY_API_SECRET: z.string().min(1),
     /** Comma-separated origins. `*` allowed only outside production. */
     CORS_ORIGIN: z.string().default('*'),
-    RESEND_API_KEY: optionalNonEmpty,
+    /** SMTP — used for password reset codes */
+    SMTP_HOST: optionalNonEmpty,
+    SMTP_PORT: z.coerce.number().int().min(1).max(65535).default(587),
+    SMTP_SECURE: booleanFromEnv.default(false),
+    SMTP_USER: optionalNonEmpty,
+    SMTP_PASS: optionalNonEmpty,
     EMAIL_FROM: optionalNonEmpty,
     /** Max AI scan captions per user per UTC day */
     OPENAI_DAILY_SCAN_CAP: z.coerce.number().int().min(1).max(1000).default(20),
@@ -33,6 +54,7 @@ const envSchema = z
   })
   .superRefine((data, ctx) => {
     const isProd = data.NODE_ENV === 'production';
+    const smtpConfigured = Boolean(data.SMTP_HOST && data.SMTP_USER && data.SMTP_PASS);
 
     if (isProd) {
       if (data.SWAGGER_PASSWORD === 'admin' || data.SWAGGER_USER === 'admin') {
@@ -52,11 +74,11 @@ const envSchema = z
         });
       }
 
-      if (!data.RESEND_API_KEY) {
+      if (!smtpConfigured) {
         ctx.addIssue({
           code: 'custom',
-          path: ['RESEND_API_KEY'],
-          message: 'RESEND_API_KEY is required in production',
+          path: ['SMTP_HOST'],
+          message: 'SMTP_HOST, SMTP_USER, and SMTP_PASS are required in production',
         });
       }
 
@@ -77,10 +99,19 @@ const envSchema = z
         });
       }
     }
+
+    if ((data.SMTP_HOST || data.SMTP_USER || data.SMTP_PASS) && !smtpConfigured) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['SMTP_HOST'],
+        message: 'Set SMTP_HOST, SMTP_USER, and SMTP_PASS together (or leave all empty)',
+      });
+    }
   });
 
 export type Env = z.infer<typeof envSchema> & {
   corsOrigins: string[] | true;
+  isSmtpConfigured: boolean;
 };
 
 function parseCorsOrigins(raw: string, nodeEnv: Env['NODE_ENV']): string[] | true {
@@ -118,6 +149,7 @@ function loadEnv(): Env {
   return {
     ...data,
     corsOrigins: parseCorsOrigins(data.CORS_ORIGIN, data.NODE_ENV),
+    isSmtpConfigured: Boolean(data.SMTP_HOST && data.SMTP_USER && data.SMTP_PASS),
   };
 }
 

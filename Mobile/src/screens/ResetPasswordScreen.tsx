@@ -1,29 +1,21 @@
 import { useState } from 'react';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import {
-  Pressable,
-  StatusBar,
-  StyleSheet,
-  Text,
-  useWindowDimensions,
-  View,
-} from 'react-native';
+import { Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RouteProp } from '@react-navigation/native';
-import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import Animated, { FadeInDown } from 'react-native-reanimated';
 import Toast from 'react-native-toast-message';
-import { AuthBackground } from '../components/auth/AuthBackground';
 import { AuthLogoHeader } from '../components/auth/AuthLogoHeader';
 import { AuthPrimaryButton } from '../components/auth/AuthPrimaryButton';
-import { GlassCard } from '../components/auth/GlassCard';
+import { AuthScreenShell } from '../components/auth/AuthScreenShell';
+import { AuthTopBar } from '../components/auth/AuthTopBar';
 import {
   GlassInput,
+  LockLeadingIcon,
   PasswordVisibilityToggle,
 } from '../components/auth/GlassInput';
-import { MaterialIcon } from '../components/profile/MaterialIcon';
 import {
   PASSWORD_MAX_LENGTH,
   resetPasswordSchema,
@@ -34,22 +26,6 @@ import type { RootStackParamList } from '../navigation/types';
 import * as authService from '../services/auth.service';
 import { colors, spacing, typography } from '../theme/tokens';
 
-<<<<<<< HEAD
-=======
-const schema = z
-  .object({
-    code: z.string().regex(/^\d{6}$/, 'Enter the 6-digit code from your email'),
-    password: z.string().min(8, 'Password must be at least 8 characters'),
-    confirmPassword: z.string().min(8, 'Confirm your password'),
-  })
-  .refine((values) => values.password === values.confirmPassword, {
-    message: 'Passwords do not match',
-    path: ['confirmPassword'],
-  });
-
-type ResetPasswordForm = z.infer<typeof schema>;
-
->>>>>>> c87195a43bac9b793e933ef90ea71ba0cb2217de
 export function ResetPasswordScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const route = useRoute<RouteProp<RootStackParamList, 'ResetPassword'>>();
@@ -61,13 +37,8 @@ export function ResetPasswordScreen() {
   const [passwordVisible, setPasswordVisible] = useState(false);
   const [confirmVisible, setConfirmVisible] = useState(false);
 
-<<<<<<< HEAD
   const form = useForm<ResetPasswordFormValues>({
     resolver: zodResolver(resetPasswordSchema),
-=======
-  const form = useForm<ResetPasswordForm>({
-    resolver: zodResolver(schema),
->>>>>>> c87195a43bac9b793e933ef90ea71ba0cb2217de
     defaultValues: { code: '', password: '', confirmPassword: '' },
   });
 
@@ -100,172 +71,139 @@ export function ResetPasswordScreen() {
   });
 
   return (
-    <View style={styles.root}>
-      <StatusBar barStyle="dark-content" backgroundColor={colors.background} translucent={false} />
-      <AuthBackground />
+    <AuthScreenShell
+      topBar={
+        <AuthTopBar
+          title="New password"
+          onBack={() => navigation.navigate('ForgotPassword')}
+        />
+      }>
+      <Animated.View entering={FadeInDown.duration(260).springify().damping(18)}>
+        <AuthLogoHeader compact />
+      </Animated.View>
 
-      <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
-        <KeyboardAwareScrollView
-          style={styles.flex}
-          contentContainerStyle={[
-            styles.container,
-            isCompact && styles.containerCompact,
-          ]}
-          keyboardShouldPersistTaps="handled"
-          showsVerticalScrollIndicator={false}
-          bottomOffset={24}>
-          <AuthLogoHeader compact={isCompact} />
+      <View style={styles.stepCard}>
+        <View style={styles.stepRow}>
+          <View style={[styles.stepDot, styles.stepDotDone]} />
+          <View style={[styles.stepLine, styles.stepLineActive]} />
+          <View style={[styles.stepDot, styles.stepDotActive]} />
+        </View>
+        <Text style={styles.stepLabel}>Step 2 of 2 · Choose a new password</Text>
+      </View>
 
-          <View style={styles.stepRow}>
-            <View style={[styles.stepDot, styles.stepDotDone]} />
-            <View style={[styles.stepLine, styles.stepLineActive]} />
-            <View style={[styles.stepDot, styles.stepDotActive]} />
-          </View>
-          <Text style={styles.stepLabel}>Step 2 of 2 · New password</Text>
+      <View style={[styles.form, isCompact && styles.formCompact]}>
+        <View style={styles.cardHeader}>
+          <Text style={styles.headline}>Enter reset code</Text>
+          <Text style={styles.subtitle}>
+            We sent a 6-digit code to{' '}
+            <Text style={styles.emailHighlight}>{email}</Text>. It expires in 15
+            minutes.
+          </Text>
+        </View>
 
-          <GlassCard compact={isCompact}>
-            <View style={[styles.cardHeader, isCompact && styles.cardHeaderCompact]}>
-              <Text style={styles.headline}>Enter reset code</Text>
-              <Text style={styles.subtitle}>
-                We sent a 6-digit code to {email}. It expires in 15 minutes.
-              </Text>
-            </View>
+        <Controller
+          control={form.control}
+          name="code"
+          render={({ field: { onChange, onBlur, value } }) => (
+            <GlassInput
+              label="Reset code"
+              placeholder="000000"
+              keyboardType="number-pad"
+              autoComplete="one-time-code"
+              textContentType="oneTimeCode"
+              maxLength={6}
+              editable={!completed && !submitting}
+              leading={<LockLeadingIcon />}
+              onBlur={onBlur}
+              onChangeText={(text) => onChange(text.replace(/\D/g, '').slice(0, 6))}
+              value={value}
+              error={form.formState.errors.code?.message}
+            />
+          )}
+        />
 
-            <View style={[styles.form, isCompact && styles.formCompact]}>
-              <Controller
-                control={form.control}
-                name="code"
-                render={({ field: { onChange, onBlur, value } }) => (
-                  <GlassInput
-                    label="Reset code"
-                    placeholder="000000"
-                    keyboardType="number-pad"
-                    autoComplete="one-time-code"
-                    textContentType="oneTimeCode"
-                    maxLength={6}
-                    editable={!completed && !submitting}
-                    onBlur={onBlur}
-                    onChangeText={(text) => onChange(text.replace(/\D/g, '').slice(0, 6))}
-                    value={value}
-                    error={form.formState.errors.code?.message}
-                  />
-                )}
-              />
+        <Controller
+          control={form.control}
+          name="password"
+          render={({ field: { onChange, onBlur, value } }) => (
+            <GlassInput
+              label="New password"
+              placeholder="At least 8 characters"
+              secureTextEntry={!passwordVisible}
+              autoComplete="new-password"
+              textContentType="newPassword"
+              maxLength={PASSWORD_MAX_LENGTH}
+              editable={!completed && !submitting}
+              leading={<LockLeadingIcon />}
+              onBlur={onBlur}
+              onChangeText={onChange}
+              value={value}
+              error={form.formState.errors.password?.message}
+              trailing={
+                <PasswordVisibilityToggle
+                  visible={passwordVisible}
+                  onToggle={() => setPasswordVisible((v) => !v)}
+                />
+              }
+            />
+          )}
+        />
 
-              <Controller
-                control={form.control}
-                name="password"
-                render={({ field: { onChange, onBlur, value } }) => (
-                  <GlassInput
-                    label="New password"
-<<<<<<< HEAD
-                    placeholder="At least 8 characters"
-                    secureTextEntry={!passwordVisible}
-                    autoComplete="new-password"
-                    textContentType="newPassword"
-                    maxLength={PASSWORD_MAX_LENGTH}
-=======
-                    placeholder="••••••••"
-                    secureTextEntry={!passwordVisible}
-                    autoComplete="new-password"
->>>>>>> c87195a43bac9b793e933ef90ea71ba0cb2217de
-                    editable={!completed && !submitting}
-                    onBlur={onBlur}
-                    onChangeText={onChange}
-                    value={value}
-                    error={form.formState.errors.password?.message}
-                    trailing={
-                      <PasswordVisibilityToggle
-                        visible={passwordVisible}
-                        onToggle={() => setPasswordVisible((v) => !v)}
-                      />
-                    }
-                  />
-                )}
-              />
+        <Controller
+          control={form.control}
+          name="confirmPassword"
+          render={({ field: { onChange, onBlur, value } }) => (
+            <GlassInput
+              label="Confirm password"
+              placeholder="Re-enter your password"
+              secureTextEntry={!confirmVisible}
+              autoComplete="new-password"
+              textContentType="newPassword"
+              returnKeyType="done"
+              maxLength={PASSWORD_MAX_LENGTH}
+              editable={!completed && !submitting}
+              leading={<LockLeadingIcon />}
+              onBlur={onBlur}
+              onChangeText={onChange}
+              value={value}
+              onSubmitEditing={onSubmit}
+              error={form.formState.errors.confirmPassword?.message}
+              trailing={
+                <PasswordVisibilityToggle
+                  visible={confirmVisible}
+                  onToggle={() => setConfirmVisible((v) => !v)}
+                />
+              }
+            />
+          )}
+        />
 
-              <Controller
-                control={form.control}
-                name="confirmPassword"
-                render={({ field: { onChange, onBlur, value } }) => (
-                  <GlassInput
-                    label="Confirm password"
-<<<<<<< HEAD
-                    placeholder="Re-enter your password"
-                    secureTextEntry={!confirmVisible}
-                    autoComplete="new-password"
-                    textContentType="newPassword"
-                    maxLength={PASSWORD_MAX_LENGTH}
-=======
-                    placeholder="••••••••"
-                    secureTextEntry={!confirmVisible}
-                    autoComplete="new-password"
->>>>>>> c87195a43bac9b793e933ef90ea71ba0cb2217de
-                    editable={!completed && !submitting}
-                    onBlur={onBlur}
-                    onChangeText={onChange}
-                    value={value}
-                    error={form.formState.errors.confirmPassword?.message}
-                    trailing={
-                      <PasswordVisibilityToggle
-                        visible={confirmVisible}
-                        onToggle={() => setConfirmVisible((v) => !v)}
-                      />
-                    }
-                  />
-                )}
-              />
+        <AuthPrimaryButton
+          label="Update password"
+          loading={submitting}
+          success={completed}
+          successLabel="Password updated"
+          showArrow={!completed}
+          disabled={completed}
+          onPress={onSubmit}
+        />
+      </View>
 
-              <AuthPrimaryButton
-                label="Update password"
-                loading={submitting}
-                success={completed}
-                successLabel="Password updated"
-                showArrow={!completed}
-                disabled={completed}
-                onPress={onSubmit}
-              />
-            </View>
-
-            <Pressable
-              accessibilityRole="button"
-              onPress={() => navigation.navigate('ForgotPassword')}
-              style={({ pressed }) => [styles.backLink, pressed && styles.pressed]}>
-              <MaterialIcon name="arrow_back" size={18} color={colors.primary} />
-              <Text style={styles.backLabel}>Request a new code</Text>
-            </Pressable>
-          </GlassCard>
-        </KeyboardAwareScrollView>
-      </SafeAreaView>
-    </View>
+      <Pressable
+        accessibilityRole="button"
+        onPress={() => navigation.navigate('ForgotPassword')}
+        style={({ pressed }) => [styles.switchRow, pressed && styles.switchPressed]}>
+        <Text style={styles.switchPrompt}>Didn&apos;t get a code? </Text>
+        <Text style={styles.switchAction}>Request a new one</Text>
+      </Pressable>
+    </AuthScreenShell>
   );
 }
 
 const styles = StyleSheet.create({
-  root: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
-  safe: {
-    flex: 1,
-    backgroundColor: 'transparent',
-  },
-  flex: {
-    flex: 1,
-  },
-  container: {
-    flexGrow: 1,
-    justifyContent: 'center',
-    paddingHorizontal: spacing.marginMobile,
-    paddingVertical: spacing.xl,
-    maxWidth: 448,
-    width: '100%',
-    alignSelf: 'center',
-    gap: spacing.md,
-  },
-  containerCompact: {
-    paddingVertical: spacing.md,
-    justifyContent: 'flex-start',
+  stepCard: {
+    alignItems: 'center',
+    gap: spacing.sm,
   },
   stepRow: {
     flexDirection: 'row',
@@ -301,23 +239,26 @@ const styles = StyleSheet.create({
     ...typography.labelMd,
     color: colors.onSurfaceVariant,
     textAlign: 'center',
-    marginBottom: spacing.sm,
+    fontWeight: '600',
   },
   cardHeader: {
-    marginBottom: spacing.xl,
-    gap: spacing.xs,
-  },
-  cardHeaderCompact: {
-    marginBottom: spacing.lg,
+    marginBottom: spacing.xs,
+    gap: spacing.sm,
   },
   headline: {
-    ...typography.headlineSm,
-    color: colors.primary,
-    fontWeight: '700',
+    ...typography.headlineLgMobile,
+    color: colors.onSurface,
+    fontWeight: '800',
+    letterSpacing: -0.4,
   },
   subtitle: {
     ...typography.bodyMd,
     color: colors.onSurfaceVariant,
+    lineHeight: 24,
+  },
+  emailHighlight: {
+    color: colors.onSurface,
+    fontWeight: '700',
   },
   form: {
     gap: spacing.lg,
@@ -325,19 +266,24 @@ const styles = StyleSheet.create({
   formCompact: {
     gap: spacing.md,
   },
-  backLink: {
+  switchRow: {
     flexDirection: 'row',
-    alignItems: 'center',
     justifyContent: 'center',
-    gap: spacing.xs,
-    minHeight: 48,
-    marginTop: spacing.lg,
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    minHeight: 44,
+    paddingVertical: spacing.sm,
   },
-  backLabel: {
-    ...typography.labelLg,
+  switchPressed: {
+    opacity: 0.75,
+  },
+  switchPrompt: {
+    ...typography.bodyMd,
+    color: colors.onSurfaceVariant,
+  },
+  switchAction: {
+    ...typography.bodyMd,
     color: colors.primary,
-  },
-  pressed: {
-    opacity: 0.88,
+    fontWeight: '700',
   },
 });
