@@ -1,6 +1,5 @@
 import {
   ActivityIndicator,
-  Platform,
   Pressable,
   StyleSheet,
   Text,
@@ -23,7 +22,7 @@ function ArrowForwardIcon() {
   return (
     <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
       <Path
-        d="M13.025 17l-1.425-1.425L16.175 11H4v-2h12.175l-4.575-4.575L13.025 3 20 9.975 13.025 17z"
+        d="M12 4l-1.41 1.41L16.17 11H4v2h12.17l-5.58 5.59L12 20l8-8-8-8z"
         fill={colors.onPrimary}
       />
     </Svg>
@@ -85,22 +84,19 @@ export function AuthPrimaryButton({
 const styles = StyleSheet.create({
   base: {
     width: '100%',
-    minHeight: 56,
-    borderRadius: radius.pill,
+    minHeight: 58,
+    borderRadius: radius.lg,
     backgroundColor: colors.primary,
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: spacing.md,
     paddingHorizontal: spacing.lg,
     marginTop: spacing.xs,
-    ...(Platform.OS === 'android'
-      ? { elevation: 2 }
-      : {
-          shadowColor: colors.primary,
-          shadowOffset: { width: 0, height: 6 },
-          shadowOpacity: 0.18,
-          shadowRadius: 10,
-        }),
+    shadowColor: colors.primary,
+    shadowOpacity: 0.35,
+    shadowRadius: 16,
+    shadowOffset: { width: 0, height: 8 },
+    elevation: 8,
   },
   content: {
     flexDirection: 'row',
@@ -110,23 +106,20 @@ const styles = StyleSheet.create({
   label: {
     ...typography.labelLg,
     color: colors.onPrimary,
+    fontWeight: '700',
+    fontSize: 16,
   },
   pressed: {
-    opacity: 0.92,
+    opacity: 0.94,
     backgroundColor: colors.primaryContainer,
   },
   disabled: {
     opacity: 0.5,
+    shadowOpacity: 0,
+    elevation: 0,
   },
   success: {
     backgroundColor: colors.tertiaryContainer,
-    ...(Platform.OS === 'android'
-      ? { elevation: 2 }
-      : {
-          shadowColor: colors.tertiaryContainer,
-          shadowOffset: { width: 0, height: 6 },
-          shadowOpacity: 0.18,
-          shadowRadius: 10,
-        }),
+    shadowColor: colors.tertiary,
   },
 });

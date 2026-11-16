@@ -1,18 +1,22 @@
+import type { LegalDocumentId } from '../config/legalDocuments';
+
 export type RootStackParamList = {
   Auth: undefined;
   ForgotPassword: undefined;
-  ResetPassword: { token?: string } | undefined;
+  ResetPassword: { email: string };
   MainTabs: undefined;
   Analyzing: { imageUri: string; mimeType?: string; fileName?: string };
   ScanResult: { scanId: string; imageUri?: string; caption?: string };
   ScanDetail: { scanId: string; caption?: string };
   AccountSettings: undefined;
+  ChangePassword: undefined;
   PrivacySettings: undefined;
   AboutCaptiq: undefined;
+  LegalDocument: { document: LegalDocumentId };
 };
 
 export type MainTabParamList = {
-  Camera: undefined;
+  Home: undefined;
   History: undefined;
   Profile: undefined;
 };

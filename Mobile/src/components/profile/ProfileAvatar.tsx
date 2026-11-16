@@ -1,7 +1,7 @@
 import { StyleSheet, Text, View } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import { MaterialIcon } from './MaterialIcon';
-import { colors, radius, typography } from '../../theme/tokens';
+import { colors, typography } from '../../theme/tokens';
 
 const AVATAR_SIZE = 80;
 
@@ -45,21 +45,21 @@ export function ProfileAvatar({
           {
             width: size,
             height: size,
-            borderRadius: radius.thumbnail,
+            borderRadius: 16,
           },
         ]}>
         <LinearGradient
-          colors={[colors.secondaryFixed, colors.secondaryFixedDim]}
+          colors={[colors.primaryFixed, '#C7D2FE']}
           style={[
             styles.avatarFill,
-            { width: size, height: size, borderRadius: radius.thumbnail },
+            { width: size, height: size, borderRadius: 16 },
           ]}>
           <Text style={styles.initials}>{initials}</Text>
         </LinearGradient>
       </View>
       {verified ? (
         <View style={styles.verifiedBadge}>
-          <MaterialIcon name="check" size={14} color={colors.onTertiaryFixed} filled />
+          <MaterialIcon name="check" size={12} color={colors.onPrimary} filled />
         </View>
       ) : null}
     </View>
@@ -71,8 +71,6 @@ const styles = StyleSheet.create({
     position: 'relative',
   },
   avatar: {
-    borderWidth: 4,
-    borderColor: 'rgba(255, 255, 255, 0.3)',
     overflow: 'hidden',
   },
   avatarFill: {
@@ -81,8 +79,8 @@ const styles = StyleSheet.create({
   },
   initials: {
     ...typography.headlineSm,
-    color: colors.onSecondaryFixed,
-    fontWeight: '700',
+    color: colors.primary,
+    fontWeight: '800',
     letterSpacing: 0.5,
   },
   verifiedBadge: {
@@ -92,7 +90,7 @@ const styles = StyleSheet.create({
     width: 24,
     height: 24,
     borderRadius: 12,
-    backgroundColor: colors.tertiaryFixedDim,
+    backgroundColor: colors.success,
     borderWidth: 2,
     borderColor: colors.surfaceContainerLowest,
     alignItems: 'center',

@@ -6,11 +6,11 @@ import { CaptiqLogo } from '../../components/branding/CaptiqLogo';
 import { MaterialIcon } from '../../components/profile/MaterialIcon';
 import { SettingsScreenLayout } from '../../components/profile/SettingsScreenLayout';
 import { SettingsSection } from '../../components/profile/SettingsSection';
+import { SUPPORT_EMAIL } from '../../config/legal';
 import type { RootStackParamList } from '../../navigation/types';
 import { colors, spacing, typography } from '../../theme/tokens';
 
-const APP_VERSION = '0.0.1';
-const SUPPORT_EMAIL = 'support@captiq.ai';
+const APP_VERSION = '1.0.0';
 
 function Bullet({ children }: { children: string }) {
   return (
@@ -77,15 +77,14 @@ export function AboutCaptiqScreen() {
           <View style={styles.techRow}>
             <MaterialIcon name="auto_awesome" size={20} color={colors.primary} filled />
             <Text style={styles.techText}>
-              Powered by advanced vision models including GPT-4o mini for fast, accurate
-              visual understanding.
+              Powered by advanced vision models for fast, accurate visual understanding.
             </Text>
           </View>
           <View style={styles.techRow}>
             <MaterialIcon name="shield" size={20} color={colors.primary} />
             <Text style={styles.techText}>
-              Secure cloud processing with encrypted authentication and account-scoped scan
-              storage.
+              Photos are stored on Cloudinary and analyzed by OpenAI. Authentication uses encrypted
+              tokens scoped to your account.
             </Text>
           </View>
         </View>
@@ -119,9 +118,7 @@ const styles = StyleSheet.create({
     width: 88,
     height: 88,
     borderRadius: 28,
-    backgroundColor: 'rgba(255, 255, 255, 0.72)',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.4)',
+    backgroundColor: colors.surfaceContainerLowest,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -195,11 +192,7 @@ const styles = StyleSheet.create({
     color: colors.onSurface,
   },
   linkDivider: {
-    marginHorizontal: spacing.lg,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: colors.outlineVariant,
-    borderStyle: 'dashed',
-    opacity: 0.5,
+    height: spacing.xs,
   },
   footer: {
     ...typography.labelMd,

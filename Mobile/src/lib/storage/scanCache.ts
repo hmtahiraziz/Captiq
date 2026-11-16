@@ -54,3 +54,16 @@ export async function saveFavoriteIds(ids: string[]): Promise<void> {
     // ignore
   }
 }
+
+export async function clearFavoriteIds(): Promise<void> {
+  try {
+    await AsyncStorage.removeItem(FAVORITES_KEY);
+  } catch {
+    // ignore
+  }
+}
+
+/** Clears local scan cache and favorites (call on logout / account delete). */
+export async function clearLocalUserData(): Promise<void> {
+  await Promise.all([clearScanCache(), clearFavoriteIds()]);
+}

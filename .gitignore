@@ -2,6 +2,8 @@
 node_modules/
 
 # Environment & secrets (never commit)
+.env
+.env.*
 !.env.example
 
 # Build output
@@ -28,3 +30,5 @@ uploads/
 tmp/
 temp/
 config.bat
+Backend/.env.example
+Backend/.env.example

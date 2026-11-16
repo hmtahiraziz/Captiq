@@ -5,6 +5,9 @@ import {
   text,
   timestamp,
   index,
+  integer,
+  date,
+  primaryKey,
 } from 'drizzle-orm/pg-core';
 import { relations } from 'drizzle-orm';
 
@@ -12,6 +15,8 @@ export const users = pgTable('users', {
   id: uuid('id').primaryKey().defaultRandom(),
   email: varchar('email', { length: 255 }).notNull().unique(),
   passwordHash: varchar('password_hash', { length: 255 }).notNull(),
+  consentVersion: varchar('consent_version', { length: 32 }),
+  consentedAt: timestamp('consented_at', { withTimezone: true }),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 });
 
@@ -78,6 +83,23 @@ export const messages = pgTable(
   (table) => [index('messages_scan_id_created_at_idx').on(table.scanId, table.createdAt)],
 );
 
+/** Per-user daily AI usage counters (UTC date). */
+export const aiUsageDaily = pgTable(
+  'ai_usage_daily',
+  {
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    usageDate: date('usage_date').notNull(),
+    scanCount: integer('scan_count').notNull().default(0),
+    messageCount: integer('message_count').notNull().default(0),
+  },
+  (table) => [
+    primaryKey({ columns: [table.userId, table.usageDate] }),
+    index('ai_usage_daily_user_id_idx').on(table.userId),
+  ],
+);
+
 export type User = typeof users.$inferSelect;
 export type Scan = typeof scans.$inferSelect;
 export type Message = typeof messages.$inferSelect;
@@ -86,6 +108,7 @@ export const usersRelations = relations(users, ({ many }) => ({
   refreshTokens: many(refreshTokens),
   passwordResetTokens: many(passwordResetTokens),
   scans: many(scans),
+  aiUsageDaily: many(aiUsageDaily),
 }));
 
 export const refreshTokensRelations = relations(refreshTokens, ({ one }) => ({
@@ -116,3 +139,21 @@ export const messagesRelations = relations(messages, ({ one }) => ({
     references: [scans.id],
   }),
 }));
+
+export const aiUsageDailyRelations = relations(aiUsageDaily, ({ one }) => ({
+  user: one(users, {
+    fields: [aiUsageDaily.userId],
+    references: [users.id],
+  }),
+}));
+
+/** Shared rate-limit buckets for multi-instance deployments. */
+export const rateLimitBuckets = pgTable(
+  'rate_limit_buckets',
+  {
+    key: varchar('key', { length: 255 }).primaryKey(),
+    hits: integer('hits').notNull().default(0),
+    resetAt: timestamp('reset_at', { withTimezone: true }).notNull(),
+  },
+  (table) => [index('rate_limit_buckets_reset_at_idx').on(table.resetAt)],
+);

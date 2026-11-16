@@ -1,14 +1,15 @@
 import { type ReactNode } from 'react';
 import {
   Pressable,
-  ScrollView,
+  StatusBar,
   StyleSheet,
   Text,
   View,
   type ViewStyle,
 } from 'react-native';
+import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
 import LinearGradient from 'react-native-linear-gradient';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { MaterialIcon } from './MaterialIcon';
 import { colors, radius, spacing, typography } from '../../theme/tokens';
 
@@ -25,34 +26,54 @@ export function SettingsScreenLayout({
   children,
   contentStyle,
 }: SettingsScreenLayoutProps) {
+  const insets = useSafeAreaInsets();
+
   return (
     <View style={styles.root}>
+      <StatusBar
+        barStyle="dark-content"
+        backgroundColor="transparent"
+        translucent
+      />
       <LinearGradient
-        colors={['#F5F2FF', '#E3DFFF', colors.background]}
-        locations={[0, 0.35, 1]}
+        colors={['#F5F2FF', colors.background, '#E8F4FF']}
+        locations={[0, 0.45, 1]}
         style={StyleSheet.absoluteFill}
       />
 
-      <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
+      <View style={[styles.headerWrap, { paddingTop: Math.max(insets.top, spacing.sm) }]}>
         <View style={styles.header}>
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="Go back"
             onPress={onBack}
             style={({ pressed }) => [styles.backButton, pressed && styles.backPressed]}>
-            <MaterialIcon name="arrow_back" size={22} color={colors.onSurfaceVariant} />
+            <MaterialIcon name="arrow_back" size={22} color={colors.primary} />
           </Pressable>
-          <Text style={styles.headerTitle}>{title}</Text>
+          <Text style={styles.headerTitle} numberOfLines={1}>
+            {title}
+          </Text>
           <View style={styles.headerSpacer} />
         </View>
+      </View>
 
-        <ScrollView
-          contentContainerStyle={[styles.content, contentStyle]}
-          showsVerticalScrollIndicator={false}
-          keyboardShouldPersistTaps="handled">
-          {children}
-        </ScrollView>
-      </SafeAreaView>
+      <KeyboardAwareScrollView
+        style={styles.scroll}
+        contentContainerStyle={[
+          styles.content,
+          { paddingBottom: Math.max(insets.bottom, spacing.lg) + spacing.xl },
+          contentStyle,
+        ]}
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="on-drag"
+        bounces={false}
+        overScrollMode="never"
+        disableScrollOnKeyboardHide
+        bottomOffset={72}
+        extraKeyboardSpace={24}>
+        {children}
+      </KeyboardAwareScrollView>
     </View>
   );
 }
@@ -62,41 +83,54 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.background,
   },
-  safe: {
-    flex: 1,
+  headerWrap: {
+    zIndex: 2,
+    backgroundColor: 'transparent',
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
+    width: '100%',
     paddingHorizontal: spacing.marginMobile,
-    paddingVertical: spacing.md,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: 'rgba(255, 255, 255, 0.35)',
-    backgroundColor: 'rgba(252, 248, 255, 0.85)',
+    paddingVertical: spacing.sm,
+    minHeight: 48,
+    backgroundColor: 'transparent',
   },
   backButton: {
     width: 40,
     height: 40,
-    borderRadius: radius.pill,
+    borderRadius: radius.lg,
     alignItems: 'center',
     justifyContent: 'center',
+    backgroundColor: 'rgba(255,255,255,0.55)',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.outlineVariant,
   },
   backPressed: {
-    backgroundColor: 'rgba(255, 255, 255, 0.45)',
+    backgroundColor: colors.primaryFixed,
   },
   headerTitle: {
     flex: 1,
     textAlign: 'center',
     ...typography.headlineSm,
     color: colors.onSurface,
+    fontWeight: '700',
+    paddingHorizontal: spacing.sm,
+    minWidth: 0,
   },
   headerSpacer: {
     width: 40,
   },
+  scroll: {
+    flex: 1,
+    backgroundColor: 'transparent',
+  },
   content: {
     paddingHorizontal: spacing.marginMobile,
-    paddingTop: spacing.lg,
-    paddingBottom: spacing.xxl,
+    paddingTop: spacing.sm,
     gap: spacing.lg,
+    maxWidth: 512,
+    width: '100%',
+    alignSelf: 'center',
   },
 });
