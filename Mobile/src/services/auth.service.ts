@@ -29,6 +29,15 @@ export async function resetPassword(
   return unwrapApi(apiClient.post('/auth/reset-password', { email, code, password }));
 }
 
+export async function changePassword(
+  currentPassword: string,
+  newPassword: string,
+): Promise<{ message: string }> {
+  return unwrapApi(
+    apiClient.post('/auth/change-password', { currentPassword, newPassword }),
+  );
+}
+
 export async function recordConsent(version: string): Promise<{
   consentVersion: string;
   consentedAt: string;

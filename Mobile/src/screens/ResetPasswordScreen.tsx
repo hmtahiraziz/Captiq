@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { z } from 'zod';
 import {
   Pressable,
   StatusBar,
@@ -25,23 +24,15 @@ import {
   PasswordVisibilityToggle,
 } from '../components/auth/GlassInput';
 import { MaterialIcon } from '../components/profile/MaterialIcon';
+import {
+  PASSWORD_MAX_LENGTH,
+  resetPasswordSchema,
+  type ResetPasswordFormValues,
+} from '../lib/auth/authSchemas';
 import { getApiErrorMessage } from '../stores/useAuthStore';
 import type { RootStackParamList } from '../navigation/types';
 import * as authService from '../services/auth.service';
 import { colors, spacing, typography } from '../theme/tokens';
-
-const schema = z
-  .object({
-    code: z.string().regex(/^\d{6}$/, 'Enter the 6-digit code from your email'),
-    password: z.string().min(8, 'Password must be at least 8 characters'),
-    confirmPassword: z.string().min(8, 'Confirm your password'),
-  })
-  .refine((values) => values.password === values.confirmPassword, {
-    message: 'Passwords do not match',
-    path: ['confirmPassword'],
-  });
-
-type ResetPasswordForm = z.infer<typeof schema>;
 
 export function ResetPasswordScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
@@ -54,8 +45,8 @@ export function ResetPasswordScreen() {
   const [passwordVisible, setPasswordVisible] = useState(false);
   const [confirmVisible, setConfirmVisible] = useState(false);
 
-  const form = useForm<ResetPasswordForm>({
-    resolver: zodResolver(schema),
+  const form = useForm<ResetPasswordFormValues>({
+    resolver: zodResolver(resetPasswordSchema),
     defaultValues: { code: '', password: '', confirmPassword: '' },
   });
 
@@ -146,9 +137,11 @@ export function ResetPasswordScreen() {
                 render={({ field: { onChange, onBlur, value } }) => (
                   <GlassInput
                     label="New password"
-                    placeholder="••••••••"
+                    placeholder="At least 8 characters"
                     secureTextEntry={!passwordVisible}
                     autoComplete="new-password"
+                    textContentType="newPassword"
+                    maxLength={PASSWORD_MAX_LENGTH}
                     editable={!completed && !submitting}
                     onBlur={onBlur}
                     onChangeText={onChange}
@@ -170,9 +163,11 @@ export function ResetPasswordScreen() {
                 render={({ field: { onChange, onBlur, value } }) => (
                   <GlassInput
                     label="Confirm password"
-                    placeholder="••••••••"
+                    placeholder="Re-enter your password"
                     secureTextEntry={!confirmVisible}
                     autoComplete="new-password"
+                    textContentType="newPassword"
+                    maxLength={PASSWORD_MAX_LENGTH}
                     editable={!completed && !submitting}
                     onBlur={onBlur}
                     onChangeText={onChange}

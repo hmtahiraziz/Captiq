@@ -11,6 +11,7 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import Toast from 'react-native-toast-message';
 import { ProfileAvatar } from '../../components/profile/ProfileAvatar';
 import { InfoRow } from '../../components/profile/InfoRow';
+import { SettingsRow } from '../../components/profile/SettingsRow';
 import { SettingsScreenLayout } from '../../components/profile/SettingsScreenLayout';
 import { SettingsSection } from '../../components/profile/SettingsSection';
 import { formatMemberSince } from '../../lib/format/date';
@@ -68,6 +69,17 @@ export function AccountSettingsScreen() {
           icon="email"
           label="Email address"
           value={user?.email ?? '—'}
+          showDivider={false}
+        />
+      </SettingsSection>
+
+      <SettingsSection title="Security">
+        <SettingsRow
+          icon="lock"
+          iconTone="violet"
+          label="Change password"
+          description="Update your account password"
+          onPress={() => navigation.navigate('ChangePassword')}
           showDivider={false}
         />
       </SettingsSection>

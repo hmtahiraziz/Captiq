@@ -9,6 +9,7 @@ export type RootStackParamList = {
   ScanResult: { scanId: string; imageUri?: string; caption?: string };
   ScanDetail: { scanId: string; caption?: string };
   AccountSettings: undefined;
+  ChangePassword: undefined;
   PrivacySettings: undefined;
   AboutCaptiq: undefined;
   LegalDocument: { document: LegalDocumentId };

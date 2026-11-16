@@ -11,6 +11,7 @@ import { ScanResultScreen } from '../screens/ScanResultScreen';
 import { SplashScreen } from '../screens/SplashScreen';
 import { AccountSettingsScreen } from '../screens/settings/AccountSettingsScreen';
 import { AboutCaptiqScreen } from '../screens/settings/AboutCaptiqScreen';
+import { ChangePasswordScreen } from '../screens/settings/ChangePasswordScreen';
 import { LegalDocumentScreen } from '../screens/settings/LegalDocumentScreen';
 import { PrivacySettingsScreen } from '../screens/settings/PrivacySettingsScreen';
 import { useAuthStore } from '../stores/useAuthStore';
@@ -62,6 +63,11 @@ export function RootNavigator() {
             <Stack.Screen name="ScanResult" component={ScanResultScreen} />
             <Stack.Screen name="ScanDetail" component={ScanDetailScreen} />
             <Stack.Screen name="AccountSettings" component={AccountSettingsScreen} />
+            <Stack.Screen
+              name="ChangePassword"
+              component={ChangePasswordScreen}
+              options={{ animation: 'slide_from_right' }}
+            />
             <Stack.Screen name="PrivacySettings" component={PrivacySettingsScreen} />
             <Stack.Screen name="AboutCaptiq" component={AboutCaptiqScreen} />
             <Stack.Screen

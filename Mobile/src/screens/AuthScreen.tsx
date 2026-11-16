@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { z } from 'zod';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import {
@@ -24,22 +23,16 @@ import {
   PasswordVisibilityToggle,
 } from '../components/auth/GlassInput';
 import { MaterialIcon } from '../components/profile/MaterialIcon';
+import {
+  PASSWORD_MAX_LENGTH,
+  loginSchema,
+  registerSchema,
+  type LoginFormValues,
+  type RegisterFormValues,
+} from '../lib/auth/authSchemas';
 import { getApiErrorMessage, useAuthStore } from '../stores/useAuthStore';
 import type { RootStackParamList } from '../navigation/types';
 import { colors, radius, spacing, typography } from '../theme/tokens';
-
-const loginSchema = z.object({
-  email: z.string().email('Enter a valid email'),
-  password: z.string().min(1, 'Password is required'),
-});
-
-const registerSchema = z.object({
-  email: z.string().email('Enter a valid email'),
-  password: z.string().min(8, 'Password must be at least 8 characters'),
-});
-
-type LoginForm = z.infer<typeof loginSchema>;
-type RegisterForm = z.infer<typeof registerSchema>;
 
 const LOGIN_COPY = {
   headline: 'Welcome back',
@@ -60,17 +53,18 @@ export function AuthScreen() {
   const isCompact = height < 780 || width < 360;
   const [submitting, setSubmitting] = useState(false);
   const [passwordVisible, setPasswordVisible] = useState(false);
+  const [confirmVisible, setConfirmVisible] = useState(false);
   const login = useAuthStore((s) => s.login);
   const register = useAuthStore((s) => s.register);
 
-  const loginForm = useForm<LoginForm>({
+  const loginForm = useForm<LoginFormValues>({
     resolver: zodResolver(loginSchema),
     defaultValues: { email: '', password: '' },
   });
 
-  const registerForm = useForm<RegisterForm>({
+  const registerForm = useForm<RegisterFormValues>({
     resolver: zodResolver(registerSchema),
-    defaultValues: { email: '', password: '' },
+    defaultValues: { email: '', password: '', confirmPassword: '' },
   });
 
   const isLogin = mode === 'login';
@@ -78,6 +72,7 @@ export function AuthScreen() {
 
   useEffect(() => {
     setPasswordVisible(false);
+    setConfirmVisible(false);
   }, [mode]);
 
   const onLogin = loginForm.handleSubmit(async (values) => {
@@ -107,6 +102,7 @@ export function AuthScreen() {
       return;
     }
     setPasswordVisible(false);
+    setConfirmVisible(false);
     if (next === 'register') {
       loginForm.reset();
     } else {
@@ -191,6 +187,8 @@ export function AuthScreen() {
                       placeholder="••••••••"
                       secureTextEntry={!passwordVisible}
                       autoComplete="password"
+                      textContentType="password"
+                      maxLength={PASSWORD_MAX_LENGTH}
                       onBlur={onBlur}
                       onChangeText={onChange}
                       value={value}
@@ -246,6 +244,8 @@ export function AuthScreen() {
                       placeholder="At least 8 characters"
                       secureTextEntry={!passwordVisible}
                       autoComplete="new-password"
+                      textContentType="newPassword"
+                      maxLength={PASSWORD_MAX_LENGTH}
                       onBlur={onBlur}
                       onChangeText={onChange}
                       value={value}
@@ -254,6 +254,30 @@ export function AuthScreen() {
                         <PasswordVisibilityToggle
                           visible={passwordVisible}
                           onToggle={() => setPasswordVisible((v) => !v)}
+                        />
+                      }
+                    />
+                  )}
+                />
+                <Controller
+                  control={registerForm.control}
+                  name="confirmPassword"
+                  render={({ field: { onChange, onBlur, value } }) => (
+                    <GlassInput
+                      label="Confirm password"
+                      placeholder="Re-enter your password"
+                      secureTextEntry={!confirmVisible}
+                      autoComplete="new-password"
+                      textContentType="newPassword"
+                      maxLength={PASSWORD_MAX_LENGTH}
+                      onBlur={onBlur}
+                      onChangeText={onChange}
+                      value={value}
+                      error={registerForm.formState.errors.confirmPassword?.message}
+                      trailing={
+                        <PasswordVisibilityToggle
+                          visible={confirmVisible}
+                          onToggle={() => setConfirmVisible((v) => !v)}
                         />
                       }
                     />

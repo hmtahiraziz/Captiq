@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { z } from 'zod';
 import {
   Pressable,
   StatusBar,
@@ -21,16 +20,14 @@ import { AuthPrimaryButton } from '../components/auth/AuthPrimaryButton';
 import { GlassCard } from '../components/auth/GlassCard';
 import { GlassInput } from '../components/auth/GlassInput';
 import { MaterialIcon } from '../components/profile/MaterialIcon';
+import {
+  forgotPasswordSchema,
+  type ForgotPasswordFormValues,
+} from '../lib/auth/authSchemas';
 import { getApiErrorMessage } from '../stores/useAuthStore';
 import type { RootStackParamList } from '../navigation/types';
 import * as authService from '../services/auth.service';
 import { colors, radius, spacing, typography } from '../theme/tokens';
-
-const schema = z.object({
-  email: z.string().email('Enter a valid email'),
-});
-
-type ForgotPasswordForm = z.infer<typeof schema>;
 
 export function ForgotPasswordScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
@@ -39,8 +36,8 @@ export function ForgotPasswordScreen() {
   const [submitting, setSubmitting] = useState(false);
   const [sent, setSent] = useState(false);
 
-  const form = useForm<ForgotPasswordForm>({
-    resolver: zodResolver(schema),
+  const form = useForm<ForgotPasswordFormValues>({
+    resolver: zodResolver(forgotPasswordSchema),
     defaultValues: { email: '' },
   });
 
